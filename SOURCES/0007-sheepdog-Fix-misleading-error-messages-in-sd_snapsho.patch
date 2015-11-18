@@ -1,0 +1,45 @@
+From 37944fcecb6708e7ad56c913210a17d4b1450273 Mon Sep 17 00:00:00 2001
+From: Markus Armbruster <armbru@redhat.com>
+Date: Thu, 12 Feb 2015 14:49:50 +0100
+Subject: [PATCH 07/13] sheepdog: Fix misleading error messages in
+ sd_snapshot_create()
+
+If do_sd_create() fails, it first reports the error returned, then
+reports a another one with strerror(errno).  errno is meaningless at
+that point.
+
+Report just one error combining the valid information from both
+messages.
+
+Reported-by: Eric Blake <eblake@redhat.com>
+Signed-off-by: Markus Armbruster <armbru@redhat.com>
+Reviewed-by: Liu Yuan <namei.unix@gmail.com>
+Reviewed-by: Eric Blake <eblake@redhat.com>
+Signed-off-by: Kevin Wolf <kwolf@redhat.com>
+
+Conflicts:
+	block/sheepdog.c
+---
+ block/sheepdog.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/block/sheepdog.c b/block/sheepdog.c
+index f31d658..89ebc22 100644
+--- a/block/sheepdog.c
++++ b/block/sheepdog.c
+@@ -2347,10 +2347,8 @@ static int sd_snapshot_create(BlockDriverState *bs, QEMUSnapshotInfo *sn_info)
+ 
+     ret = do_sd_create(s, &new_vid, 1, &local_err);
+     if (ret < 0) {
+-        error_report("%s", error_get_pretty(local_err));;
+-        error_free(local_err);
+-        error_report("failed to create inode for snapshot. %s",
+-                     strerror(errno));
++        error_report("failed to create inode for snapshot: %s",
++                     error_get_pretty(local_err));
+         goto cleanup;
+     }
+ 
+-- 
+1.8.3.1
+

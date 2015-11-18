@@ -895,6 +895,21 @@ Patch367: kvm-RDMA-Fix-error-exits.patch
 # For bz#1255897 - CVE-2015-5225 qemu-kvm-rhev: Qemu: ui: vnc: heap memory corruption in vnc_refresh_server_surface [rhel-7.1.z]
 Patch368: kvm-vnc-fix-memory-corruption-CVE-2015-5225.patch
 
+# Sheepdog driver fixes
+Patch369: 0001-sheepdog-adopting-protocol-update-for-VDI-locking.patch
+Patch370: 0002-sheepdog-improve-error-handling-for-a-case-of-failed.patch
+Patch371: 0003-sheepdog-fix-a-core-dump-while-do-auto-reconnecting.patch
+Patch372: 0004-sheepdog-Convert-sd_aiocb_info.cancel-to-.cancel_asy.patch
+Patch373: 0005-sheepdog-selectable-object-size-support.patch
+Patch374: 0006-sheepdog-fix-confused-return-values.patch
+Patch375: 0007-sheepdog-Fix-misleading-error-messages-in-sd_snapsho.patch
+Patch376: 0008-sheepdog-fix-resource-leak-with-sd_snapshot_create.patch
+Patch377: 0009-sheepdog-serialize-requests-to-overwrapping-area.patch
+Patch378: 0010-sheepdog-add-reopen-support.patch
+Patch379: 0011-sheepdog-use-per-AIOCB-dirty-indexes-for-non-overlap.patch
+Patch380: 0012-sheepdog-refine-discard-support.patch
+Patch381: 0013-sheepdog-cancel_async-is-not-exist-in-v2.1.2.patch
+
 BuildRequires: zlib-devel
 BuildRequires: SDL-devel
 BuildRequires: which
@@ -1474,6 +1489,21 @@ cp %{SOURCE20} pc-bios
 %patch367 -p1
 %patch368 -p1
 
+# Sheepdog patches
+%patch369 -p1
+%patch370 -p1
+%patch371 -p1
+%patch372 -p1
+%patch373 -p1
+%patch374 -p1
+%patch375 -p1
+%patch376 -p1
+%patch377 -p1
+%patch378 -p1
+%patch379 -p1
+%patch380 -p1
+%patch381 -p1
+
 %build
 buildarch="%{kvm_target}-softmmu"
 
@@ -1562,10 +1592,10 @@ dobuild() {
 %endif
 %if 0%{have_gluster}
         --enable-glusterfs \
-        --block-drv-rw-whitelist=qcow2,raw,file,host_device,nbd,iscsi,gluster,rbd,blkdebug \
+        --block-drv-rw-whitelist=qcow2,raw,file,host_device,nbd,iscsi,gluster,rbd,blkdebug,sheepdog \
 %else
         --disable-glusterfs \
-        --block-drv-rw-whitelist=qcow2,raw,file,host_device,nbd,iscsi,rbd,blkdebug \
+        --block-drv-rw-whitelist=qcow2,raw,file,host_device,nbd,iscsi,rbd,blkdebug,sheepdog \
 %endif
         --block-drv-ro-whitelist=vmdk,vhdx,vpc,https,ssh \
         --enable-numa \

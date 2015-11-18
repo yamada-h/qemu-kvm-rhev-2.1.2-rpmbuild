@@ -1,0 +1,79 @@
+From 0a9bc7f005919ca8ada695dddccbb8d91e724dde Mon Sep 17 00:00:00 2001
+From: Liu Yuan <liuyuan@cmss.chinamobile.com>
+Date: Wed, 18 Feb 2015 11:57:55 +0800
+Subject: [PATCH 06/13] sheepdog: fix confused return values
+
+These functions mix up -1 and -errno in return values and would might cause
+trouble error handling in the call chain.
+
+This patch let them return -errno and add some comments.
+
+Cc: qemu-devel@nongnu.org
+Cc: Markus Armbruster <armbru@redhat.com>
+Cc: Kevin Wolf <kwolf@redhat.com>
+Cc: Stefan Hajnoczi <stefanha@redhat.com>
+Reported-by: Markus Armbruster <armbru@redhat.com>
+Signed-off-by: Liu Yuan <liuyuan@cmss.chinamobile.com>
+Message-id: 1424231875-7131-1-git-send-email-namei.unix@gmail.com
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Signed-off-by: Kevin Wolf <kwolf@redhat.com>
+---
+ block/sheepdog.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/block/sheepdog.c b/block/sheepdog.c
+index bec6f9d..f31d658 100644
+--- a/block/sheepdog.c
++++ b/block/sheepdog.c
+@@ -545,6 +545,7 @@ static SheepdogAIOCB *sd_aio_setup(BlockDriverState *bs, QEMUIOVector *qiov,
+     return acb;
+ }
+ 
++/* Return -EIO in case of error, file descriptor on success */
+ static int connect_to_sdog(BDRVSheepdogState *s, Error **errp)
+ {
+     int fd;
+@@ -564,11 +565,14 @@ static int connect_to_sdog(BDRVSheepdogState *s, Error **errp)
+ 
+     if (fd >= 0) {
+         qemu_set_nonblock(fd);
++    } else {
++        fd = -EIO;
+     }
+ 
+     return fd;
+ }
+ 
++/* Return 0 on success and -errno in case of error */
+ static coroutine_fn int send_co_req(int sockfd, SheepdogReq *hdr, void *data,
+                                     unsigned int *wlen)
+ {
+@@ -577,11 +581,13 @@ static coroutine_fn int send_co_req(int sockfd, SheepdogReq *hdr, void *data,
+     ret = qemu_co_send(sockfd, hdr, sizeof(*hdr));
+     if (ret != sizeof(*hdr)) {
+         error_report("failed to send a req, %s", strerror(errno));
++        ret = -socket_error();
+         return ret;
+     }
+ 
+     ret = qemu_co_send(sockfd, data, *wlen);
+     if (ret != *wlen) {
++        ret = -socket_error();
+         error_report("failed to send a req, %s", strerror(errno));
+     }
+ 
+@@ -656,6 +662,11 @@ out:
+     srco->finished = true;
+ }
+ 
++/*
++ * Send the request to the sheep in a synchronous manner.
++ *
++ * Return 0 on success, -errno in case of error.
++ */
+ static int do_req(int sockfd, AioContext *aio_context, SheepdogReq *hdr,
+                   void *data, unsigned int *wlen, unsigned int *rlen)
+ {
+-- 
+1.8.3.1
+

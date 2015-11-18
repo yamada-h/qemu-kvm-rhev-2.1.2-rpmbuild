@@ -1,0 +1,62 @@
+From ecf40d480d9cea2f98b0e4065c755a7006e54140 Mon Sep 17 00:00:00 2001
+From: Hitoshi Mitake <mitake.hitoshi@lab.ntt.co.jp>
+Date: Mon, 11 Aug 2014 14:43:45 +0900
+Subject: [PATCH 01/13] sheepdog: adopting protocol update for VDI locking
+
+The update is required for supporting iSCSI multipath. It doesn't
+affect behavior of QEMU driver but adding a new field to vdi request
+struct is required.
+
+Cc: Kevin Wolf <kwolf@redhat.com>
+Cc: Stefan Hajnoczi <stefanha@redhat.com>
+Cc: Liu Yuan <namei.unix@gmail.com>
+Cc: MORITA Kazutaka <morita.kazutaka@gmail.com>
+Signed-off-by: Hitoshi Mitake <mitake.hitoshi@lab.ntt.co.jp>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+---
+ block/sheepdog.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/block/sheepdog.c b/block/sheepdog.c
+index 8d9350c..3da5ea2 100644
+--- a/block/sheepdog.c
++++ b/block/sheepdog.c
+@@ -103,6 +103,9 @@
+ #define SD_INODE_SIZE (sizeof(SheepdogInode))
+ #define CURRENT_VDI_ID 0
+ 
++#define LOCK_TYPE_NORMAL 0
++#define LOCK_TYPE_SHARED 1      /* for iSCSI multipath */
++
+ typedef struct SheepdogReq {
+     uint8_t proto_ver;
+     uint8_t opcode;
+@@ -166,7 +169,8 @@ typedef struct SheepdogVdiReq {
+     uint8_t copy_policy;
+     uint8_t reserved[2];
+     uint32_t snapid;
+-    uint32_t pad[3];
++    uint32_t type;
++    uint32_t pad[2];
+ } SheepdogVdiReq;
+ 
+ typedef struct SheepdogVdiRsp {
+@@ -1090,6 +1094,7 @@ static int find_vdi_name(BDRVSheepdogState *s, const char *filename,
+     memset(&hdr, 0, sizeof(hdr));
+     if (lock) {
+         hdr.opcode = SD_OP_LOCK_VDI;
++        hdr.type = LOCK_TYPE_NORMAL;
+     } else {
+         hdr.opcode = SD_OP_GET_VDI_INFO;
+     }
+@@ -1793,6 +1798,7 @@ static void sd_close(BlockDriverState *bs)
+     memset(&hdr, 0, sizeof(hdr));
+ 
+     hdr.opcode = SD_OP_RELEASE_VDI;
++    hdr.type = LOCK_TYPE_NORMAL;
+     hdr.base_vdi_id = s->inode.vdi_id;
+     wlen = strlen(s->name) + 1;
+     hdr.data_length = wlen;
+-- 
+1.8.3.1
+

@@ -1,0 +1,29 @@
+From 720eb4eb69787bc26ae009da95c9fb95ac591db6 Mon Sep 17 00:00:00 2001
+From: YAMADA Hideki <yamada.hideki@gmail.com>
+Date: Wed, 18 Nov 2015 03:57:57 -0500
+Subject: [PATCH 13/13] sheepdog: cancel_async is not exist in v2.1.2
+
+refs: 02c50efe08736116048d5fc355043080f4d5859c
+refs: ca5fd113b8ae5898853a757e06cb8d8a0c5e5d85
+
+Signed-off-by: YAMADA Hideki <yamada.hideki@gmail.com>
+---
+ block/sheepdog.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/block/sheepdog.c b/block/sheepdog.c
+index 49373e8..78c6a35 100644
+--- a/block/sheepdog.c
++++ b/block/sheepdog.c
+@@ -537,7 +537,7 @@ static void sd_aio_cancel(BlockDriverAIOCB *blockacb)
+ 
+ static const AIOCBInfo sd_aiocb_info = {
+     .aiocb_size     = sizeof(SheepdogAIOCB),
+-    .cancel_async   = sd_aio_cancel,
++    .cancel   = sd_aio_cancel,
+ };
+ 
+ static SheepdogAIOCB *sd_aio_setup(BlockDriverState *bs, QEMUIOVector *qiov,
+-- 
+1.8.3.1
+

@@ -1,0 +1,37 @@
+From 1f7ef680cf7aef2b7277f76d1372035e180f3358 Mon Sep 17 00:00:00 2001
+From: Hitoshi Mitake <mitake.hitoshi@lab.ntt.co.jp>
+Date: Mon, 11 Aug 2014 14:43:46 +0900
+Subject: [PATCH 02/13] sheepdog: improve error handling for a case of failed
+ lock
+
+Recently, sheepdog revived its VDI locking functionality. This patch
+updates sheepdog driver of QEMU for this feature. It changes an error
+code for a case of failed locking. -EBUSY is a suitable one.
+
+Reported-by: Valerio Pachera <sirio81@gmail.com>
+Cc: Kevin Wolf <kwolf@redhat.com>
+Cc: Stefan Hajnoczi <stefanha@redhat.com>
+Cc: Liu Yuan <namei.unix@gmail.com>
+Cc: MORITA Kazutaka <morita.kazutaka@gmail.com>
+Signed-off-by: Hitoshi Mitake <mitake.hitoshi@lab.ntt.co.jp>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+---
+ block/sheepdog.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/block/sheepdog.c b/block/sheepdog.c
+index 3da5ea2..53f9d90 100644
+--- a/block/sheepdog.c
++++ b/block/sheepdog.c
+@@ -1115,6 +1115,8 @@ static int find_vdi_name(BDRVSheepdogState *s, const char *filename,
+                    sd_strerror(rsp->result), filename, snapid, tag);
+         if (rsp->result == SD_RES_NO_VDI) {
+             ret = -ENOENT;
++        } else if (rsp->result == SD_RES_VDI_LOCKED) {
++            ret = -EBUSY;
+         } else {
+             ret = -EIO;
+         }
+-- 
+1.8.3.1
+

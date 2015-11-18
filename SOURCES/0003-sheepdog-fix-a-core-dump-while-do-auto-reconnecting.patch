@@ -1,0 +1,57 @@
+From 7cb86052b8c3c12fcdde6a2c8213512e1d48784d Mon Sep 17 00:00:00 2001
+From: Liu Yuan <namei.unix@gmail.com>
+Date: Thu, 28 Aug 2014 18:27:55 +0800
+Subject: [PATCH 03/13] sheepdog: fix a core dump while do auto-reconnecting
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+We should reinit local_err as NULL inside the while loop or g_free() will report
+corrupption and abort the QEMU when sheepdog driver tries reconnecting.
+
+This was broken in commit 356b4ca.
+
+qemu-system-x86_64: failed to get the header, Resource temporarily unavailable
+qemu-system-x86_64: Failed to connect to socket: Connection refused
+qemu-system-x86_64: (null)
+[xcb] Unknown sequence number while awaiting reply
+[xcb] Most likely this is a multi-threaded client and XInitThreads has not been called
+[xcb] Aborting, sorry about that.
+qemu-system-x86_64: ../../src/xcb_io.c:298: poll_for_response: Assertion `!xcb_xlib_threads_sequence_lost' failed.
+Aborted (core dumped)
+
+Cc: qemu-devel@nongnu.org
+Cc: Markus Armbruster <armbru@redhat.com>
+Cc: Kevin Wolf <kwolf@redhat.com>
+Cc: Stefan Hajnoczi <stefanha@redhat.com>
+Reviewed-by: Markus Armbruster <armbru@redhat.com>
+Signed-off-by: Liu Yuan <namei.unix@gmail.com>
+Reviewed-by: Benoît Canet <benoit.canet@nodalink.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+---
+ block/sheepdog.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/block/sheepdog.c b/block/sheepdog.c
+index 53f9d90..d8e0e96 100644
+--- a/block/sheepdog.c
++++ b/block/sheepdog.c
+@@ -716,7 +716,6 @@ static void coroutine_fn send_pending_req(BDRVSheepdogState *s, uint64_t oid)
+ 
+ static coroutine_fn void reconnect_to_sdog(void *opaque)
+ {
+-    Error *local_err = NULL;
+     BDRVSheepdogState *s = opaque;
+     AIOReq *aio_req, *next;
+ 
+@@ -731,6 +730,7 @@ static coroutine_fn void reconnect_to_sdog(void *opaque)
+ 
+     /* Try to reconnect the sheepdog server every one second. */
+     while (s->fd < 0) {
++        Error *local_err = NULL;
+         s->fd = get_sheep_fd(s, &local_err);
+         if (s->fd < 0) {
+             DPRINTF("Wait for connection to be established\n");
+-- 
+1.8.3.1
+

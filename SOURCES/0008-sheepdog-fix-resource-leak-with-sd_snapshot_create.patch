@@ -1,0 +1,27 @@
+From 2878679a9b0d3fe65e18f23711eb3ca440e8fa28 Mon Sep 17 00:00:00 2001
+From: zhanghailiang <zhang.zhanghailiang@huawei.com>
+Date: Tue, 5 May 2015 09:48:03 +0800
+Subject: [PATCH 08/13] sheepdog: fix resource leak with sd_snapshot_create
+
+Signed-off-by: zhanghailiang <zhang.zhanghailiang@huawei.com>
+Reviewed-by: Markus Armbruster <armbru@redhat.com>
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+---
+ block/sheepdog.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/block/sheepdog.c b/block/sheepdog.c
+index 89ebc22..5a9aa3f 100644
+--- a/block/sheepdog.c
++++ b/block/sheepdog.c
+@@ -2349,6 +2349,7 @@ static int sd_snapshot_create(BlockDriverState *bs, QEMUSnapshotInfo *sn_info)
+     if (ret < 0) {
+         error_report("failed to create inode for snapshot: %s",
+                      error_get_pretty(local_err));
++        error_free(local_err);
+         goto cleanup;
+     }
+ 
+-- 
+1.8.3.1
+
