@@ -1,0 +1,121 @@
+From 6c1da04ed152cc08f30b0fdad56780dd3f08fb81 Mon Sep 17 00:00:00 2001
+Message-Id: <6c1da04ed152cc08f30b0fdad56780dd3f08fb81.1418787305.git.jen@redhat.com>
+In-Reply-To: <c0f9fa126e925a00235d9077b474dabb4dbdfdc1.1418787305.git.jen@redhat.com>
+References: <c0f9fa126e925a00235d9077b474dabb4dbdfdc1.1418787305.git.jen@redhat.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Date: Wed, 10 Dec 2014 13:53:33 -0600
+Subject: [CHANGE 11/12] block/migration: Disable cache invalidate for incoming
+ migration
+To: rhvirt-patches@redhat.com,
+    jen@redhat.com
+
+RH-Author: Stefan Hajnoczi <stefanha@redhat.com>
+Message-id: <1418219613-27149-1-git-send-email-stefanha@redhat.com>
+Patchwork-id: 62815
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH] block/migration: Disable cache invalidate for incoming migration
+Bugzilla: 1171552
+RH-Acked-by: Fam Zheng <famz@redhat.com>
+RH-Acked-by: Max Reitz <mreitz@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+
+From: Alexey Kardashevskiy <aik@ozlabs.ru>
+
+When migrated using libvirt with "--copy-storage-all", at the end of
+migration there is race between NBD mirroring task trying to do flush
+and migration completion, both end up invalidating cache. Since qcow2
+driver does not handle this situation very well, random crashes happen.
+
+This disables the BDRV_O_INCOMING flag for the block device being migrated
+once the cache has been invalidated.
+
+Signed-off-by: Alexey Kardashevskiy <aik@ozlabs.ru>
+Reviewed-by: Paolo Bonzini <pbonzini@redhat.com>
+
+fixed parens by hand
+Signed-off-by: Juan Quintela <quintela@redhat.com>
+
+(cherry picked from commit 7ea2d269cb84ca7a2f4b7c3735634176f7c1dc35)
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Signed-off-by: Jeff E. Nelson <jen@redhat.com>
+
+Conflicts:
+	nbd.c
+
+Context conflict due to dataplane changes in QEMU 2.2 that are not yet
+in RHEL 7.1 qemu-kvm-rhev.
+
+Signed-off-by: Jeff E. Nelson <jen@redhat.com>
+---
+ block.c     | 18 +++++-------------
+ migration.c |  1 -
+ nbd.c       |  6 ++++++
+ 3 files changed, 11 insertions(+), 14 deletions(-)
+
+diff --git a/block.c b/block.c
+index cef9bda..29173d4 100644
+--- a/block.c
++++ b/block.c
+@@ -5019,6 +5019,11 @@ void bdrv_invalidate_cache(BlockDriverState *bs, Error **errp)
+         return;
+     }
+ 
++    if (!(bs->open_flags & BDRV_O_INCOMING)) {
++        return;
++    }
++    bs->open_flags &= ~BDRV_O_INCOMING;
++
+     if (bs->drv->bdrv_invalidate_cache) {
+         bs->drv->bdrv_invalidate_cache(bs, &local_err);
+     } else if (bs->file) {
+@@ -5054,19 +5059,6 @@ void bdrv_invalidate_cache_all(Error **errp)
+     }
+ }
+ 
+-void bdrv_clear_incoming_migration_all(void)
+-{
+-    BlockDriverState *bs;
+-
+-    QTAILQ_FOREACH(bs, &bdrv_states, device_list) {
+-        AioContext *aio_context = bdrv_get_aio_context(bs);
+-
+-        aio_context_acquire(aio_context);
+-        bs->open_flags = bs->open_flags & ~(BDRV_O_INCOMING);
+-        aio_context_release(aio_context);
+-    }
+-}
+-
+ int bdrv_flush(BlockDriverState *bs)
+ {
+     Coroutine *co;
+diff --git a/migration.c b/migration.c
+index deeb491..ba28e6c 100644
+--- a/migration.c
++++ b/migration.c
+@@ -103,7 +103,6 @@ static void process_incoming_migration_co(void *opaque)
+     }
+     qemu_announce_self();
+ 
+-    bdrv_clear_incoming_migration_all();
+     /* Make sure all file formats flush their mutable metadata */
+     bdrv_invalidate_cache_all(&local_err);
+     if (local_err) {
+diff --git a/nbd.c b/nbd.c
+index e7d1cee..9bb14a6 100644
+--- a/nbd.c
++++ b/nbd.c
+@@ -933,6 +933,12 @@ NBDExport *nbd_export_new(BlockDriverState *bs, off_t dev_offset,
+     exp->size = size == -1 ? bdrv_getlength(bs) : size;
+     exp->close = close;
+     bdrv_ref(bs);
++    /*
++     * NBD exports are used for non-shared storage migration.  Make sure
++     * that BDRV_O_INCOMING is cleared and the image is ready for write
++     * access since the export could be available before migration handover.
++     */
++    bdrv_invalidate_cache(bs, NULL);
+     return exp;
+ }
+ 
+-- 
+2.1.0
+

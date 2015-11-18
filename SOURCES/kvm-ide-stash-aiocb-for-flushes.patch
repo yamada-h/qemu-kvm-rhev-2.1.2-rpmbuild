@@ -1,0 +1,52 @@
+From 0cc39d0c6763e80d7bfbe043b4fddb1d5a91eb00 Mon Sep 17 00:00:00 2001
+From: John Snow <jsnow@redhat.com>
+Date: Fri, 14 Nov 2014 22:07:16 +0100
+Subject: [PATCH 28/48] ide: stash aiocb for flushes
+
+Message-id: <1416002855-4964-2-git-send-email-jsnow@redhat.com>
+Patchwork-id: 62388
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH v2 01/20] ide: stash aiocb for flushes
+Bugzilla: 1024599
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+
+From: Paolo Bonzini <pbonzini@redhat.com>
+
+This ensures that operations are completed after a reset
+
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit 69f72a22213a6909bf4aef06133c976b508e370a)
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/ide/core.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/hw/ide/core.c b/hw/ide/core.c
+index 608b47f..594ff89 100644
+--- a/hw/ide/core.c
++++ b/hw/ide/core.c
+@@ -870,6 +870,8 @@ static void ide_flush_cb(void *opaque, int ret)
+ {
+     IDEState *s = opaque;
+ 
++    s->pio_aiocb = NULL;
++
+     if (ret < 0) {
+         /* XXX: What sector number to set here? */
+         if (ide_handle_rw_error(s, -ret, BM_STATUS_RETRY_FLUSH)) {
+@@ -894,7 +896,7 @@ void ide_flush_cache(IDEState *s)
+ 
+     s->status |= BUSY_STAT;
+     bdrv_acct_start(s->bs, &s->acct, 0, BDRV_ACCT_FLUSH);
+-    bdrv_aio_flush(s->bs, ide_flush_cb, s);
++    s->pio_aiocb = bdrv_aio_flush(s->bs, ide_flush_cb, s);
+ }
+ 
+ static void ide_cfata_metadata_inquiry(IDEState *s)
+-- 
+1.8.3.1
+

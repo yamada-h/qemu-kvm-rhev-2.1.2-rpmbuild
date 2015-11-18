@@ -1,0 +1,48 @@
+From 21c417e9d55dff3124b54ad9fe91562e86be80ca Mon Sep 17 00:00:00 2001
+From: Fam Zheng <famz@redhat.com>
+Date: Thu, 13 Nov 2014 04:40:23 +0100
+Subject: [PATCH 20/48] vmdk: fix vmdk_parse_extents() extent_file leaks
+
+Message-id: <1415853625-15050-6-git-send-email-famz@redhat.com>
+Patchwork-id: 62348
+O-Subject: [RHEL-7.1 qemu-kvm-rhev PATCH v3 5/7] vmdk: fix vmdk_parse_extents() extent_file leaks
+Bugzilla: 1132385
+RH-Acked-by: Jeffrey Cody <jcody@redhat.com>
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+RH-Acked-by: Max Reitz <mreitz@redhat.com>
+
+From: Stefan Hajnoczi <stefanha@redhat.com>
+
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Reviewed-by: Max Reitz <mreitz@redhat.com>
+Reviewed-by: Fam Zheng <famz@redhat.com>
+(cherry picked from commit ff74f33c310892c90c4439d963a6ce67f47ce18c)
+Signed-off-by: Fam Zheng <famz@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ block/vmdk.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/block/vmdk.c b/block/vmdk.c
+index ca166cc..1512487 100644
+--- a/block/vmdk.c
++++ b/block/vmdk.c
+@@ -836,6 +836,7 @@ static int vmdk_parse_extents(const char *desc, BlockDriverState *bs,
+             ret = vmdk_add_extent(bs, extent_file, true, sectors,
+                             0, 0, 0, 0, 0, &extent, errp);
+             if (ret < 0) {
++                bdrv_unref(extent_file);
+                 return ret;
+             }
+             extent->flat_start_offset = flat_offset << 9;
+@@ -855,6 +856,7 @@ static int vmdk_parse_extents(const char *desc, BlockDriverState *bs,
+             extent = &s->extents[s->num_extents - 1];
+         } else {
+             error_setg(errp, "Unsupported extent type '%s'", type);
++            bdrv_unref(extent_file);
+             return -ENOTSUP;
+         }
+         extent->type = g_strdup(type);
+-- 
+1.8.3.1
+

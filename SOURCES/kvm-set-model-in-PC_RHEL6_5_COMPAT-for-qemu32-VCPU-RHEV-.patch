@@ -1,0 +1,49 @@
+From 04a7c6ada3e0936093816ad72bd1dcd2c2426329 Mon Sep 17 00:00:00 2001
+From: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+Date: Thu, 3 Jul 2014 14:15:57 +0200
+Subject: [PATCH 193/212] set model in PC_RHEL6_5_COMPAT for qemu32 VCPU (RHEV-7.1 only)
+
+RH-Author: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+Message-id: <1404396958-13568-4-git-send-email-dgilbert@redhat.com>
+Patchwork-id: 59471
+O-Subject: [RHEL-7.1 qemu-kvm-rhev PATCH v5 3/4] set model in PC_RHEL6_5_COMPAT for qemu32 VCPU (RHEV-7.1 only)
+Bugzilla: 1085950
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Eduardo Habkost <ehabkost@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Bandan Das <bsd@redhat.com>
+
+From: "Dr. David Alan Gilbert" <dgilbert@redhat.com>
+
+This patch forward ports a missing hunk from RHEL-7.0 commit 9baf8db
+("target-i386: Set model=6 on qemu64 & qemu32 CPU models"). It should
+have no effect in practice (we don't care about qemu32* VCPUs).
+
+Signed-off-by: Laszlo Ersek <lersek@redhat.com>
+---
+ hw/i386/pc_piix.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/i386/pc_piix.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
+index 5caf5de..e35a6d3 100644
+--- a/hw/i386/pc_piix.c
++++ b/hw/i386/pc_piix.c
+@@ -1075,6 +1075,10 @@ static QEMUMachine pc_machine_rhel700 = {
+         .property = "level",\
+         .value = stringify(0),\
+     },{\
++        .driver   = "qemu32-" TYPE_X86_CPU,\
++        .property = "model",\
++        .value    = stringify(3),\
++    },{\
+         .driver   = "usb-ccid",\
+         .property = "serial",\
+         .value    = "1",\
+-- 
+1.7.1
+

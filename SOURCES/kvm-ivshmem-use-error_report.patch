@@ -1,0 +1,159 @@
+From b028a8498941d024de00e9a6d69aa67ca45477de Mon Sep 17 00:00:00 2001
+From: Andrew Jones <drjones@redhat.com>
+Date: Thu, 18 Sep 2014 23:49:28 +0200
+Subject: [PATCH 1/8] ivshmem: use error_report
+
+Message-id: <1411084171-28836-2-git-send-email-drjones@redhat.com>
+Patchwork-id: 61303
+O-Subject: [PATCH RHEV-7.1 qemu-kvm-rhev 1/4] ivshmem: use error_report
+Bugzilla: 1104063
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Marcel Apfelbaum <marcel.a@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+
+Replace all the fprintf(stderr, ...) calls with error_report.
+Also make sure exit() consistently uses the error code 1. A few calls
+used -1.
+
+Signed-off-by: Andrew Jones <drjones@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/misc/ivshmem.c | 39 +++++++++++++++++++--------------------
+ 1 file changed, 19 insertions(+), 20 deletions(-)
+
+diff --git a/hw/misc/ivshmem.c b/hw/misc/ivshmem.c
+index 768e528..3f03614 100644
+--- a/hw/misc/ivshmem.c
++++ b/hw/misc/ivshmem.c
+@@ -297,8 +297,8 @@ static CharDriverState* create_eventfd_chr_device(void * opaque, EventNotifier *
+     chr = qemu_chr_open_eventfd(eventfd);
+ 
+     if (chr == NULL) {
+-        fprintf(stderr, "creating eventfd for eventfd %d failed\n", eventfd);
+-        exit(-1);
++        error_report("creating eventfd for eventfd %d failed", eventfd);
++        exit(1);
+     }
+     qemu_chr_fe_claim_no_fail(chr);
+ 
+@@ -327,10 +327,9 @@ static int check_shm_size(IVShmemState *s, int fd) {
+     fstat(fd, &buf);
+ 
+     if (s->ivshmem_size > buf.st_size) {
+-        fprintf(stderr,
+-                "IVSHMEM ERROR: Requested memory size greater"
+-                " than shared object size (%" PRIu64 " > %" PRIu64")\n",
+-                s->ivshmem_size, (uint64_t)buf.st_size);
++        error_report("Requested memory size greater than shared object size "
++                     "(%" PRIu64 " > %" PRIu64")",
++                     s->ivshmem_size, (uint64_t)buf.st_size);
+         return -1;
+     } else {
+         return 0;
+@@ -456,7 +455,7 @@ static void ivshmem_read(void *opaque, const uint8_t * buf, int flags)
+     incoming_fd = dup(tmp_fd);
+ 
+     if (incoming_fd == -1) {
+-        fprintf(stderr, "could not allocate file descriptor %s\n",
++        error_report("could not allocate file descriptor %s",
+                                                             strerror(errno));
+         return;
+     }
+@@ -469,7 +468,7 @@ static void ivshmem_read(void *opaque, const uint8_t * buf, int flags)
+         s->max_peer = 0;
+ 
+         if (check_shm_size(s, incoming_fd) == -1) {
+-            exit(-1);
++            exit(1);
+         }
+ 
+         /* mmap the region and map into the BAR2 */
+@@ -563,13 +562,13 @@ static uint64_t ivshmem_get_size(IVShmemState * s) {
+             value <<= 30;
+             break;
+         default:
+-            fprintf(stderr, "qemu: invalid ram size: %s\n", s->sizearg);
++            error_report("invalid ram size: %s", s->sizearg);
+             exit(1);
+     }
+ 
+     /* BARs must be a power of 2 */
+     if (!is_power_of_two(value)) {
+-        fprintf(stderr, "ivshmem: size must be power of 2\n");
++        error_report("size must be power of 2");
+         exit(1);
+     }
+ 
+@@ -621,7 +620,7 @@ static int ivshmem_load(QEMUFile* f, void *opaque, int version_id)
+     }
+ 
+     if (proxy->role_val == IVSHMEM_PEER) {
+-        fprintf(stderr, "ivshmem: 'peer' devices are not migratable\n");
++        error_report("'peer' devices are not migratable");
+         return -EINVAL;
+     }
+ 
+@@ -665,7 +664,7 @@ static int pci_ivshmem_init(PCIDevice *dev)
+     /* IRQFD requires MSI */
+     if (ivshmem_has_feature(s, IVSHMEM_IOEVENTFD) &&
+         !ivshmem_has_feature(s, IVSHMEM_MSI)) {
+-        fprintf(stderr, "ivshmem: ioeventfd/irqfd requires MSI\n");
++        error_report("ioeventfd/irqfd requires MSI");
+         exit(1);
+     }
+ 
+@@ -676,7 +675,7 @@ static int pci_ivshmem_init(PCIDevice *dev)
+         } else if (strncmp(s->role, "master", 7) == 0) {
+             s->role_val = IVSHMEM_MASTER;
+         } else {
+-            fprintf(stderr, "ivshmem: 'role' must be 'peer' or 'master'\n");
++            error_report("'role' must be 'peer' or 'master'");
+             exit(1);
+         }
+     } else {
+@@ -716,8 +715,8 @@ static int pci_ivshmem_init(PCIDevice *dev)
+          * to the ivshmem server to receive the memory region */
+ 
+         if (s->shmobj != NULL) {
+-            fprintf(stderr, "WARNING: do not specify both 'chardev' "
+-                                                "and 'shm' with ivshmem\n");
++            error_report("WARNING: do not specify both 'chardev' "
++                                                "and 'shm' with ivshmem");
+         }
+ 
+         IVSHMEM_DPRINTF("using shared memory server (socket = %s)\n",
+@@ -745,7 +744,7 @@ static int pci_ivshmem_init(PCIDevice *dev)
+         int fd;
+ 
+         if (s->shmobj == NULL) {
+-            fprintf(stderr, "Must specify 'chardev' or 'shm' to ivshmem\n");
++            error_report("Must specify 'chardev' or 'shm' to ivshmem");
+             exit(1);
+         }
+ 
+@@ -757,18 +756,18 @@ static int pci_ivshmem_init(PCIDevice *dev)
+                         S_IRWXU|S_IRWXG|S_IRWXO)) > 0) {
+            /* truncate file to length PCI device's memory */
+             if (ftruncate(fd, s->ivshmem_size) != 0) {
+-                fprintf(stderr, "ivshmem: could not truncate shared file\n");
++                error_report("could not truncate shared file");
+             }
+ 
+         } else if ((fd = shm_open(s->shmobj, O_CREAT|O_RDWR,
+                         S_IRWXU|S_IRWXG|S_IRWXO)) < 0) {
+-            fprintf(stderr, "ivshmem: could not open shared file\n");
+-            exit(-1);
++            error_report("could not open shared file");
++            exit(1);
+ 
+         }
+ 
+         if (check_shm_size(s, fd) == -1) {
+-            exit(-1);
++            exit(1);
+         }
+ 
+         create_shared_memory_BAR(s, fd);
+-- 
+1.8.3.1
+

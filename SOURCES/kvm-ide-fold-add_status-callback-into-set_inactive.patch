@@ -1,0 +1,215 @@
+From d9ac0f3ad3e23983392f07ed41b8eaddec2558c0 Mon Sep 17 00:00:00 2001
+From: John Snow <jsnow@redhat.com>
+Date: Fri, 14 Nov 2014 22:07:23 +0100
+Subject: [PATCH 35/48] ide: fold add_status callback into set_inactive
+
+Message-id: <1416002855-4964-9-git-send-email-jsnow@redhat.com>
+Patchwork-id: 62391
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH v2 08/20] ide: fold add_status callback into set_inactive
+Bugzilla: 1024599
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+
+From: Paolo Bonzini <pbonzini@redhat.com>
+
+It is now called only after the set_inactive callback.  Put the two together.
+
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit 0e7ce54cf5fb9b7e8d19a5a4eb1facf123edbcef)
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/ide/ahci.c     | 10 ----------
+ hw/ide/atapi.c    |  2 +-
+ hw/ide/core.c     | 12 ++++--------
+ hw/ide/internal.h |  6 +++---
+ hw/ide/macio.c    |  1 -
+ hw/ide/pci.c      | 19 +++++++------------
+ 6 files changed, 15 insertions(+), 35 deletions(-)
+
+diff --git a/hw/ide/ahci.c b/hw/ide/ahci.c
+index f2e10e2..8698c9f 100644
+--- a/hw/ide/ahci.c
++++ b/hw/ide/ahci.c
+@@ -1102,15 +1102,6 @@ static int ahci_dma_set_unit(IDEDMA *dma, int unit)
+     return 0;
+ }
+ 
+-static int ahci_dma_add_status(IDEDMA *dma, int status)
+-{
+-#ifdef AHCI_DEBUG
+-    AHCIDevice *ad = DO_UPCAST(AHCIDevice, dma, dma);
+-    DPRINTF(ad->port_no, "set status: %x\n", status);
+-#endif
+-    return 0;
+-}
+-
+ static void ahci_async_cmd_done(IDEDMA *dma)
+ {
+     AHCIDevice *ad = DO_UPCAST(AHCIDevice, dma, dma);
+@@ -1141,7 +1132,6 @@ static const IDEDMAOps ahci_dma_ops = {
+     .prepare_buf = ahci_dma_prepare_buf,
+     .rw_buf = ahci_dma_rw_buf,
+     .set_unit = ahci_dma_set_unit,
+-    .add_status = ahci_dma_add_status,
+     .async_cmd_done = ahci_async_cmd_done,
+     .restart_cb = ahci_dma_restart_cb,
+ };
+diff --git a/hw/ide/atapi.c b/hw/ide/atapi.c
+index 46ed3f5..3b419b3 100644
+--- a/hw/ide/atapi.c
++++ b/hw/ide/atapi.c
+@@ -355,7 +355,7 @@ static void ide_atapi_cmd_read_dma_cb(void *opaque, int ret)
+ 
+ eot:
+     bdrv_acct_done(s->bs, &s->acct);
+-    ide_set_inactive(s);
++    ide_set_inactive(s, false);
+ }
+ 
+ /* start a CD-CDROM read command with DMA */
+diff --git a/hw/ide/core.c b/hw/ide/core.c
+index 034cf38..f9b41af 100644
+--- a/hw/ide/core.c
++++ b/hw/ide/core.c
+@@ -632,11 +632,11 @@ static void ide_async_cmd_done(IDEState *s)
+     }
+ }
+ 
+-void ide_set_inactive(IDEState *s)
++void ide_set_inactive(IDEState *s, bool more)
+ {
+     s->bus->dma->aiocb = NULL;
+     if (s->bus->dma->ops->set_inactive) {
+-        s->bus->dma->ops->set_inactive(s->bus->dma);
++        s->bus->dma->ops->set_inactive(s->bus->dma, more);
+     }
+     ide_async_cmd_done(s);
+ }
+@@ -646,7 +646,7 @@ void ide_dma_error(IDEState *s)
+     ide_transfer_stop(s);
+     s->error = ABRT_ERR;
+     s->status = READY_STAT | ERR_STAT;
+-    ide_set_inactive(s);
++    ide_set_inactive(s, false);
+     ide_set_irq(s->bus);
+ }
+ 
+@@ -758,10 +758,7 @@ eot:
+     if (s->dma_cmd == IDE_DMA_READ || s->dma_cmd == IDE_DMA_WRITE) {
+         bdrv_acct_done(s->bs, &s->acct);
+     }
+-    ide_set_inactive(s);
+-    if (stay_active) {
+-        s->bus->dma->ops->add_status(s->bus->dma, BM_STATUS_DMAING);
+-    }
++    ide_set_inactive(s, stay_active);
+ }
+ 
+ static void ide_sector_start_dma(IDEState *s, enum ide_dma_cmd dma_cmd)
+@@ -2292,7 +2289,6 @@ static const IDEDMAOps ide_dma_nop_ops = {
+     .prepare_buf    = ide_nop_int,
+     .rw_buf         = ide_nop_int,
+     .set_unit       = ide_nop_int,
+-    .add_status     = ide_nop_int,
+     .restart_cb     = ide_nop_restart,
+ };
+ 
+diff --git a/hw/ide/internal.h b/hw/ide/internal.h
+index 2fe1f0a..b35e52c 100644
+--- a/hw/ide/internal.h
++++ b/hw/ide/internal.h
+@@ -322,6 +322,7 @@ typedef void EndTransferFunc(IDEState *);
+ typedef void DMAStartFunc(IDEDMA *, IDEState *, BlockDriverCompletionFunc *);
+ typedef void DMAVoidFunc(IDEDMA *);
+ typedef int DMAIntFunc(IDEDMA *, int);
++typedef void DMAStopFunc(IDEDMA *, bool);
+ typedef void DMARestartFunc(void *, int, RunState);
+ 
+ struct unreported_events {
+@@ -431,8 +432,7 @@ struct IDEDMAOps {
+     DMAIntFunc *prepare_buf;
+     DMAIntFunc *rw_buf;
+     DMAIntFunc *set_unit;
+-    DMAIntFunc *add_status;
+-    DMAVoidFunc *set_inactive;
++    DMAStopFunc *set_inactive;
+     DMAVoidFunc *async_cmd_done;
+     DMARestartFunc *restart_cb;
+     DMAVoidFunc *reset;
+@@ -565,7 +565,7 @@ void ide_flush_cache(IDEState *s);
+ void ide_transfer_start(IDEState *s, uint8_t *buf, int size,
+                         EndTransferFunc *end_transfer_func);
+ void ide_transfer_stop(IDEState *s);
+-void ide_set_inactive(IDEState *s);
++void ide_set_inactive(IDEState *s, bool more);
+ BlockDriverAIOCB *ide_issue_trim(BlockDriverState *bs,
+         int64_t sector_num, QEMUIOVector *qiov, int nb_sectors,
+         BlockDriverCompletionFunc *cb, void *opaque);
+diff --git a/hw/ide/macio.c b/hw/ide/macio.c
+index b7cedb6..b0c0d40 100644
+--- a/hw/ide/macio.c
++++ b/hw/ide/macio.c
+@@ -569,7 +569,6 @@ static const IDEDMAOps dbdma_ops = {
+     .prepare_buf    = ide_nop_int,
+     .rw_buf         = ide_nop_int,
+     .set_unit       = ide_nop_int,
+-    .add_status     = ide_nop_int,
+     .restart_cb     = ide_nop_restart,
+ };
+ 
+diff --git a/hw/ide/pci.c b/hw/ide/pci.c
+index 1ee8c0a..73267a4 100644
+--- a/hw/ide/pci.c
++++ b/hw/ide/pci.c
+@@ -152,21 +152,17 @@ static int bmdma_set_unit(IDEDMA *dma, int unit)
+     return 0;
+ }
+ 
+-static int bmdma_add_status(IDEDMA *dma, int status)
++static void bmdma_set_inactive(IDEDMA *dma, bool more)
+ {
+     BMDMAState *bm = DO_UPCAST(BMDMAState, dma, dma);
+-    bm->status |= status;
+ 
+-    return 0;
+-}
+-
+-static void bmdma_set_inactive(IDEDMA *dma)
+-{
+-    BMDMAState *bm = DO_UPCAST(BMDMAState, dma, dma);
+-
+-    bm->status &= ~BM_STATUS_DMAING;
+     bm->dma_cb = NULL;
+     bm->unit = -1;
++    if (more) {
++        bm->status |= BM_STATUS_DMAING;
++    } else {
++        bm->status &= ~BM_STATUS_DMAING;
++    }
+ }
+ 
+ static void bmdma_restart_dma(BMDMAState *bm, enum ide_dma_cmd dma_cmd)
+@@ -241,7 +237,7 @@ static void bmdma_cancel(BMDMAState *bm)
+ {
+     if (bm->status & BM_STATUS_DMAING) {
+         /* cancel DMA request */
+-        bmdma_set_inactive(&bm->dma);
++        bmdma_set_inactive(&bm->dma, false);
+     }
+ }
+ 
+@@ -498,7 +494,6 @@ static const struct IDEDMAOps bmdma_ops = {
+     .prepare_buf = bmdma_prepare_buf,
+     .rw_buf = bmdma_rw_buf,
+     .set_unit = bmdma_set_unit,
+-    .add_status = bmdma_add_status,
+     .set_inactive = bmdma_set_inactive,
+     .restart_cb = bmdma_restart_cb,
+     .reset = bmdma_reset,
+-- 
+1.8.3.1
+

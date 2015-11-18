@@ -1,0 +1,83 @@
+From 8df1525893c03a6470159fcdb7b94ee970b0928d Mon Sep 17 00:00:00 2001
+From: Igor Mammedov <imammedo@redhat.com>
+Date: Tue, 3 Feb 2015 13:06:32 +0100
+Subject: [PATCH 1/2] pc: acpi: mark all possible CPUs as enabled in SRAT
+
+Message-id: <1422968792-12639-1-git-send-email-imammedo@redhat.com>
+Patchwork-id: 63713
+O-Subject: [RHEL7.1 qemu-kvm-rhev PATCH] pc: acpi: mark all possible CPUs as enabled in SRAT
+Bugzilla: 1191385
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+RH-Acked-by: Marcel Apfelbaum <marcel@redhat.com>
+RH-Acked-by: Eduardo Habkost <ehabkost@redhat.com>
+RH-Acked-by: Andrew Jones <drjones@redhat.com>
+
+Cherry-picked from: upstream dd0247e0
+
+If QEMU is started with  -numa ... Windows only notices that
+CPU has been hot-added but it will not online such CPUs.
+
+It's caused by the fact that possible CPUs are flagged as
+not enabled in SRAT and Windows honoring that information
+doesn't use corresponding CPU.
+
+ACPI 5.0 Spec regarding to flag says:
+"
+Table 5-47 Local APIC Flags
+...
+Enabled: if zero, this processor is unusable, and the operating system
+support will not attempt to use it.
+"
+
+Fix QEMU to adhere to spec and mark possible CPUs as enabled
+in SRAT.
+
+With that Windows onlines hot-added CPUs as expected.
+
+Signed-off-by: Igor Mammedov <imammedo@redhat.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/i386/acpi-build.c | 11 +++--------
+ 1 file changed, 3 insertions(+), 8 deletions(-)
+
+diff --git a/hw/i386/acpi-build.c b/hw/i386/acpi-build.c
+index 33cdd4d..814d45e 100644
+--- a/hw/i386/acpi-build.c
++++ b/hw/i386/acpi-build.c
+@@ -1228,8 +1228,7 @@ acpi_build_srat_memory(AcpiSratMemoryAffinity *numamem, uint64_t base,
+ }
+ 
+ static void
+-build_srat(GArray *table_data, GArray *linker,
+-           AcpiCpuInfo *cpu, PcGuestInfo *guest_info)
++build_srat(GArray *table_data, GArray *linker, PcGuestInfo *guest_info)
+ {
+     AcpiSystemResourceAffinityTable *srat;
+     AcpiSratProcessorAffinity *core;
+@@ -1259,11 +1258,7 @@ build_srat(GArray *table_data, GArray *linker,
+         core->proximity_lo = curnode;
+         memset(core->proximity_hi, 0, 3);
+         core->local_sapic_eid = 0;
+-        if (test_bit(i, cpu->found_cpus)) {
+-            core->flags = cpu_to_le32(1);
+-        } else {
+-            core->flags = cpu_to_le32(0);
+-        }
++        core->flags = cpu_to_le32(1);
+     }
+ 
+ 
+@@ -1539,7 +1534,7 @@ void acpi_build(PcGuestInfo *guest_info, AcpiBuildTables *tables)
+     }
+     if (guest_info->numa_nodes) {
+         acpi_add_table(table_offsets, tables->table_data);
+-        build_srat(tables->table_data, tables->linker, &cpu, guest_info);
++        build_srat(tables->table_data, tables->linker, guest_info);
+     }
+     if (acpi_get_mcfg(&mcfg)) {
+         acpi_add_table(table_offsets, tables->table_data);
+-- 
+1.8.3.1
+

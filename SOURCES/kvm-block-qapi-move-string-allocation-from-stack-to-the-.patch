@@ -1,0 +1,72 @@
+From 898ec5fcf20ce00fda3f944ab0f515606803a967 Mon Sep 17 00:00:00 2001
+From: Jeffrey Cody <jcody@redhat.com>
+Date: Tue, 27 Jan 2015 13:11:17 +0100
+Subject: [PATCH 1/4] block: qapi - move string allocation from stack to the
+ heap
+
+Message-id: <a52e451f01a927af73b0482e97db95f23a55b6f5.1422363744.git.jcody@redhat.com>
+Patchwork-id: 63579
+O-Subject: [PATCH v4 qemu-kvm-rhel RHEL7.1 1/4] block: qapi - move string allocation from stack to the heap
+Bugzilla: 1117170
+RH-Acked-by: Kevin Wolf <kwolf@redhat.com>
+RH-Acked-by: Max Reitz <mreitz@redhat.com>
+RH-Acked-by: John Snow <jsnow@redhat.com>
+
+Rather than declaring 'backing_filename2' on the stack in
+bdrv_query_image_info(), dynamically allocate it on the heap.
+
+Reviewed-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Jeff Cody <jcody@redhat.com>
+Signed-off-by: Kevin Wolf <kwolf@redhat.com>
+(cherry picked from commit 564d64bdde8e0a6b732a56fa41670e73b19ee062)
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+
+Conflicts:
+	block/qapi.c
+            * bdrv_get_full_backing_filename() does not have an Error
+              argument.
+
+Signed-off-by: Jeff Cody <jcody@redhat.com>
+---
+ block/qapi.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+---
+ block/qapi.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/block/qapi.c b/block/qapi.c
+index f44f6b4..4a21fad 100644
+--- a/block/qapi.c
++++ b/block/qapi.c
+@@ -167,7 +167,6 @@ void bdrv_query_image_info(BlockDriverState *bs,
+ {
+     uint64_t total_sectors;
+     const char *backing_filename;
+-    char backing_filename2[1024];
+     BlockDriverInfo bdi;
+     int ret;
+     Error *err = NULL;
+@@ -197,10 +196,10 @@ void bdrv_query_image_info(BlockDriverState *bs,
+ 
+     backing_filename = bs->backing_file;
+     if (backing_filename[0] != '\0') {
++        char *backing_filename2 = g_malloc0(1024);
+         info->backing_filename = g_strdup(backing_filename);
+         info->has_backing_filename = true;
+-        bdrv_get_full_backing_filename(bs, backing_filename2,
+-                                       sizeof(backing_filename2));
++        bdrv_get_full_backing_filename(bs, backing_filename2, 1024);
+ 
+         if (strcmp(backing_filename, backing_filename2) != 0) {
+             info->full_backing_filename =
+@@ -212,6 +211,7 @@ void bdrv_query_image_info(BlockDriverState *bs,
+             info->backing_filename_format = g_strdup(bs->backing_format);
+             info->has_backing_filename_format = true;
+         }
++        g_free(backing_filename2);
+     }
+ 
+     ret = bdrv_query_snapshot_info_list(bs, &info->snapshots, &err);
+-- 
+1.8.3.1
+

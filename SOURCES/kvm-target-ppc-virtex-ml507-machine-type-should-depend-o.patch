@@ -1,0 +1,51 @@
+From e9ace5995100fb31b5b1990d40af7fe5d2d0e3b2 Mon Sep 17 00:00:00 2001
+From: dgibson <dgibson@redhat.com>
+Date: Mon, 8 Sep 2014 03:41:41 +0200
+Subject: [PATCH 02/14] target-ppc: virtex-ml507 machine type should depend on CONFIG_XILINX
+
+Message-id: <1410147705-12993-2-git-send-email-dgibson@redhat.com>
+Patchwork-id: 60891
+O-Subject: [PATCH qemu-kvm-rhev RHEV7.1 1/5] target-ppc: virtex-ml507 machine type should depend on CONFIG_XILINX
+Bugzilla: 1113998
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+
+Backporting this upstream patch of mine, since it makes disabling the
+boards and devices we don't need in RHEL easier.
+
+Signed-off-by: David Gibson <dgibson@redhat.com>
+
+commit dd626989d0af7732007389160f49b428898a1389
+Author: David Gibson <david@gibson.dropbear.id.au>
+Date:   Fri Aug 15 14:58:38 2014 +1000
+
+    target-ppc: virtex-ml507 machine type should depend on CONFIG_XILINX
+
+    The virtex-ml507 is a Xilinx CPU based system, and requires several sub
+    devices which are only included with CONFIG_XILINX.  Therefore, it should
+    only be compiled if CONFIG_XILINX is set.
+
+    Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
+---
+ hw/ppc/Makefile.objs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/ppc/Makefile.objs |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/hw/ppc/Makefile.objs b/hw/ppc/Makefile.objs
+index edd44d0..19d9920 100644
+--- a/hw/ppc/Makefile.objs
++++ b/hw/ppc/Makefile.objs
+@@ -20,4 +20,4 @@ obj-$(CONFIG_MAC) += mac_newworld.o
+ obj-$(CONFIG_E500) += e500.o mpc8544ds.o e500plat.o
+ obj-$(CONFIG_E500) += mpc8544_guts.o ppce500_spin.o
+ # PowerPC 440 Xilinx ML507 reference board.
+-obj-y += virtex_ml507.o
++obj-$(CONFIG_XILINX) += virtex_ml507.o
+-- 
+1.7.1
+

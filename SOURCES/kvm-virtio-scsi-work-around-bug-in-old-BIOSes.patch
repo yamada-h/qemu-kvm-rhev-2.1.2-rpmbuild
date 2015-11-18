@@ -1,0 +1,75 @@
+From 3819dfba3f8a393ca0c15f2450a00448f543f16b Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Fri, 7 Nov 2014 15:11:30 +0100
+Subject: [PATCH 13/48] virtio-scsi: work around bug in old BIOSes
+
+Message-id: <1415373090-6211-1-git-send-email-pbonzini@redhat.com>
+Patchwork-id: 62181
+O-Subject: [RHEL7.1 qemu-kvm-rhev PATCH] virtio-scsi: work around bug in old BIOSes
+Bugzilla: 1123812
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+RH-Acked-by: Fam Zheng <famz@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+
+Old BIOSes left some padding by mistake after the req_size/resp_size.
+New QEMU does not like it, thinking it is a bidirectional command.
+
+As a workaround, we can check if the ANY_LAYOUT bit is set; if not, we
+always consider the first buffer as the virtio-scsi request/response,
+because, back when QEMU did not support ANY_LAYOUT, it expected the
+payload to start at the second element of the iovec.
+
+This can show up during migration.
+
+Cc: qemu-stable@nongnu.org
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 55783a5521a3b1f93ee6a072e414a27c6cfa15f0
+ in the scsi-next branch)
+
+For RHEL, this fixes a bug in RHEL6->RHEL7 migration.
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/scsi/virtio-scsi.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+diff --git a/hw/scsi/virtio-scsi.c b/hw/scsi/virtio-scsi.c
+index bd880c8..9e6592f 100644
+--- a/hw/scsi/virtio-scsi.c
++++ b/hw/scsi/virtio-scsi.c
+@@ -135,6 +135,7 @@ static size_t qemu_sgl_concat(VirtIOSCSIReq *req, struct iovec *iov,
+ static int virtio_scsi_parse_req(VirtIOSCSIReq *req,
+                                  unsigned req_size, unsigned resp_size)
+ {
++    VirtIODevice *vdev = (VirtIODevice *) req->dev;
+     size_t in_size, out_size;
+ 
+     if (iov_to_buf(req->elem.out_sg, req->elem.out_num, 0,
+@@ -147,8 +148,24 @@ static int virtio_scsi_parse_req(VirtIOSCSIReq *req,
+                               resp_size) < resp_size) {
+         return -EINVAL;
+     }
++
+     req->resp_size = resp_size;
+ 
++    /* Old BIOSes left some padding by mistake after the req_size/resp_size.
++     * As a workaround, always consider the first buffer as the virtio-scsi
++     * request/response, making the payload start at the second element
++     * of the iovec.
++     *
++     * The actual length of the response header, stored in req->resp_size,
++     * does not change.
++     *
++     * TODO: always disable this workaround for virtio 1.0 devices.
++     */
++    if ((vdev->guest_features & VIRTIO_F_ANY_LAYOUT) == 0) {
++        req_size = req->elem.out_sg[0].iov_len;
++        resp_size = req->elem.in_sg[0].iov_len;
++    }
++
+     out_size = qemu_sgl_concat(req, req->elem.out_sg,
+                                &req->elem.out_addr[0], req->elem.out_num,
+                                req_size);
+-- 
+1.8.3.1
+

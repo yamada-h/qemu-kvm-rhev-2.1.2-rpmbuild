@@ -1,0 +1,39 @@
+From 61463fcfb65cccf1dbfe34544c871945855dce56 Mon Sep 17 00:00:00 2001
+From: Miroslav Rezanina <mrezanin@redhat.com>
+Date: Tue, 19 Mar 2013 07:37:43 -0400
+Subject: [PATCH 009/212] Disable unsupported audio devices
+
+Bugzilla: 921974
+
+Only AC97 and Intel HDA are supported audio devices. Limit build only to these devices.
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ default-configs/pci.mak   |    1 -
+ default-configs/sound.mak |    4 ----
+ 2 files changed, 0 insertions(+), 5 deletions(-)
+
+diff --git a/default-configs/pci.mak b/default-configs/pci.mak
+index 6d12a63..95c477f 100644
+--- a/default-configs/pci.mak
++++ b/default-configs/pci.mak
+@@ -10,7 +10,6 @@ CONFIG_PCNET_PCI=y
+ CONFIG_PCNET_COMMON=y
+ CONFIG_AC97=y
+ CONFIG_HDA=y
+-CONFIG_ES1370=y
+ CONFIG_RTL8139_PCI=y
+ CONFIG_E1000_PCI=y
+ CONFIG_VMXNET3_PCI=y
+diff --git a/default-configs/sound.mak b/default-configs/sound.mak
+index 4f22c34..e69de29 100644
+--- a/default-configs/sound.mak
++++ b/default-configs/sound.mak
+@@ -1,4 +0,0 @@
+-CONFIG_SB16=y
+-CONFIG_ADLIB=y
+-CONFIG_GUS=y
+-CONFIG_CS4231A=y
+-- 
+1.7.1
+

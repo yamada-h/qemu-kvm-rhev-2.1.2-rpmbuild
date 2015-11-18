@@ -1,0 +1,53 @@
+From dc62aae4952b2fc6f8778a16bb8dc2d9b636d6fd Mon Sep 17 00:00:00 2001
+From: Radim Krcmar <rkrcmar@redhat.com>
+Date: Thu, 18 Sep 2014 16:29:58 +0200
+Subject: [PATCH 13/14] pc: increase maximal VCPU count to 240
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Message-id: <1411057798-18761-1-git-send-email-rkrcmar@redhat.com>
+Patchwork-id: 61299
+O-Subject: [RHEV7.1 qemu-kvm-rhev PATCH] pc: increase maximal VCPU count to 240
+Bugzilla: 1144089
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Andrew Jones <drjones@redhat.com>
+RH-Acked-by: Eduardo Habkost <ehabkost@redhat.com>
+
+To prevent TCG from going over RHEV KVM's limit in d832249687, we added
+another downstream constraint that needs to be bumped.
+(forwardport of RHEL7 commit aa6910ca37db66c51b7a9a6431b68f7223b8fd7b)
+
+RHEV does the limiting differently than RHEL, because all models are
+using one template.  (See d832249687 for details.)
+
+There's missing comment (in compare with RHEL version):
+
+/* KVM can't exceed KVM_SOFT_MAX_VCPUS (arch/x86/include/asm/kvm_host.h) */
+
+We have independent ways to limit the VCPU count that need to be
+synchronized (ugh) and the main purpose of that comment was to aid
+subsequent modifications starting in qemu.
+
+Signed-off-by: Radim Krčmář <rkrcmar@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ include/hw/i386/pc.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/include/hw/i386/pc.h b/include/hw/i386/pc.h
+index d30ff14..c7ef58e 100644
+--- a/include/hw/i386/pc.h
++++ b/include/hw/i386/pc.h
+@@ -511,7 +511,7 @@ bool e820_get_entry(int, uint32_t, uint64_t *, uint64_t *);
+ #define PC_DEFAULT_MACHINE_OPTIONS \
+     PC_COMMON_MACHINE_OPTIONS, \
+     .hot_add_cpu = pc_hot_add_cpu, \
+-    .max_cpus = 160
++    .max_cpus = 240
+ 
+ /*
+  * The PC_RHEL_*_COMPAT serve the same purpose for RHEL-7 machine
+-- 
+1.7.1
+

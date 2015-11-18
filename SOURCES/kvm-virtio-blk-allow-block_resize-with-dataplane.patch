@@ -1,0 +1,46 @@
+From 9465d74ecaf7975ec9c8d0bf7fb2cce50c8edec7 Mon Sep 17 00:00:00 2001
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Date: Wed, 3 Sep 2014 09:17:59 +0200
+Subject: [PATCH 06/15] virtio-blk: allow block_resize with dataplane
+
+Message-id: <1409735881-28863-3-git-send-email-stefanha@redhat.com>
+Patchwork-id: 60823
+O-Subject: [RHEL7.1 qemu-kvm-rhev PATCH 2/4] virtio-blk: allow block_resize with dataplane
+Bugzilla: 1136752
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Fam Zheng <famz@redhat.com>
+
+Now that block_resize acquires the AioContext we can safely allow
+resizing the disk.
+
+Reported-by: Andrey Korolyov <andrey@xdel.ru>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Reviewed-by: Max Reitz <mreitz@redhat.com>
+Signed-off-by: Kevin Wolf <kwolf@redhat.com>
+(cherry picked from commit 466560b9fcada2656b276eb30e25da15a6e706df)
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+---
+ hw/block/dataplane/virtio-blk.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/block/dataplane/virtio-blk.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/hw/block/dataplane/virtio-blk.c b/hw/block/dataplane/virtio-blk.c
+index d6ba65c..b042caf 100644
+--- a/hw/block/dataplane/virtio-blk.c
++++ b/hw/block/dataplane/virtio-blk.c
+@@ -192,6 +192,7 @@ void virtio_blk_data_plane_create(VirtIODevice *vdev, VirtIOBlkConf *blk,
+ 
+     error_setg(&s->blocker, "block device is in use by data plane");
+     bdrv_op_block_all(blk->conf.bs, s->blocker);
++    bdrv_op_unblock(blk->conf.bs, BLOCK_OP_TYPE_RESIZE, s->blocker);
+ 
+     *dataplane = s;
+ }
+-- 
+1.7.1
+

@@ -1,0 +1,87 @@
+From c6ed56f0518e773d9a712be0127d9abd227f1b4c Mon Sep 17 00:00:00 2001
+From: John Snow <jsnow@redhat.com>
+Date: Fri, 14 Nov 2014 22:07:29 +0100
+Subject: [PATCH 41/48] ide/atapi: Mark non-data commands as complete
+
+Message-id: <1416002855-4964-15-git-send-email-jsnow@redhat.com>
+Patchwork-id: 62399
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH v2 14/20] ide/atapi: Mark non-data commands as complete
+Bugzilla: 1024599
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+
+When the command completion code in IDE and AHCI
+was unified to put all command completion inside
+of a callback, "cmd_done," we neglected to
+ensure that all AHCI/ATAPI command paths would
+eventually register as finished. for the PCI
+interface to IDE this is not a problem because
+cmd_done is a nop, but the AHCI implementation
+needs to send a D2H_REG_FIS and interrupt back
+to the guest to inform of completion.
+
+This patch adds calls to ide_stop_transfer,
+which calls ide_cmd_done, inside of
+ide_atapi_cmd_ok and ide_atapi_cmd_error.
+
+This fixes regressions observed by trying to boot QEMU
+with a Fedora 20 live CD under Q35/AHCI, which uses
+ATAPI command 0x00, which is a status check that may
+cause a hang because we never complete, and ATAPI
+command 0x56, which is unsupported by our current
+implementation and results in an error that we never
+report back to the guest.
+
+Signed-off-by: John Snow <jsnow@redhat.com>
+Reviewed-by: Paolo Bonzini <pbonzini@redhat.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit d735b620b58f2fdfddc8e641e9feac3c9671a49d)
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/ide/atapi.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/hw/ide/atapi.c b/hw/ide/atapi.c
+index 3d92b52..ee80c22 100644
+--- a/hw/ide/atapi.c
++++ b/hw/ide/atapi.c
+@@ -134,6 +134,7 @@ void ide_atapi_cmd_ok(IDEState *s)
+     s->error = 0;
+     s->status = READY_STAT | SEEK_STAT;
+     s->nsector = (s->nsector & ~7) | ATAPI_INT_REASON_IO | ATAPI_INT_REASON_CD;
++    ide_transfer_stop(s);
+     ide_set_irq(s->bus);
+ }
+ 
+@@ -147,6 +148,7 @@ void ide_atapi_cmd_error(IDEState *s, int sense_key, int asc)
+     s->nsector = (s->nsector & ~7) | ATAPI_INT_REASON_IO | ATAPI_INT_REASON_CD;
+     s->sense_key = sense_key;
+     s->asc = asc;
++    ide_transfer_stop(s);
+     ide_set_irq(s->bus);
+ }
+ 
+@@ -174,9 +176,7 @@ void ide_atapi_cmd_reply_end(IDEState *s)
+ #endif
+     if (s->packet_transfer_size <= 0) {
+         /* end of transfer */
+-        s->status = READY_STAT | SEEK_STAT;
+-        s->nsector = (s->nsector & ~7) | ATAPI_INT_REASON_IO | ATAPI_INT_REASON_CD;
+-        ide_transfer_stop(s);
++        ide_atapi_cmd_ok(s);
+         ide_set_irq(s->bus);
+ #ifdef DEBUG_IDE_ATAPI
+         printf("status=0x%x\n", s->status);
+@@ -186,7 +186,6 @@ void ide_atapi_cmd_reply_end(IDEState *s)
+         if (s->lba != -1 && s->io_buffer_index >= s->cd_sector_size) {
+             ret = cd_read_sector(s, s->lba, s->io_buffer, s->cd_sector_size);
+             if (ret < 0) {
+-                ide_transfer_stop(s);
+                 ide_atapi_io_error(s, ret);
+                 return;
+             }
+-- 
+1.8.3.1
+

@@ -1,0 +1,43 @@
+From b3b227ab0756631d520768a597ca234c33bc93b0 Mon Sep 17 00:00:00 2001
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Date: Fri, 7 Nov 2014 12:59:05 -0500
+Subject: [PATCH 02/10] hw/arm/virt: add linux, stdout-path to /chosen DT node
+
+Message-id: <1415383153-28089-3-git-send-email-wei@redhat.com>
+Patchwork-id: 62220
+O-Subject: [RHELSA qemu-kvm-rhev PATCH 02/10] hw/arm/virt: add linux,
+        stdout-path to /chosen DT node
+Bugzilla: 1160325
+RH-Acked-by: Andrew Jones <drjones@redhat.com>
+
+Add a property "linux,stdout-path" to the /chosen DT node and make
+it point to the emulated UART. This allows users such as the Linux
+kernel to produce console output without the need to pass console=
+or earlycon=pl011,0x... command line arguments.
+
+Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Message-id: 1409317439-29349-1-git-send-email-ard.biesheuvel@linaro.org
+Reviewed-by: Rob Herring <rob.herring@linaro.org>
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+
+Signed-off-by: Wei Huang <wei@redhat.com>
+---
+ hw/arm/virt.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/hw/arm/virt.c b/hw/arm/virt.c
+index 7b83816..138e87b 100644
+--- a/hw/arm/virt.c
++++ b/hw/arm/virt.c
+@@ -376,6 +376,8 @@ static void create_uart(const VirtBoardInfo *vbi, qemu_irq *pic)
+                                vbi->clock_phandle, vbi->clock_phandle);
+     qemu_fdt_setprop(vbi->fdt, nodename, "clock-names",
+                          clocknames, sizeof(clocknames));
++
++    qemu_fdt_setprop_string(vbi->fdt, "/chosen", "linux,stdout-path", nodename);
+     g_free(nodename);
+ }
+ 
+-- 
+1.8.3.1
+

@@ -1,0 +1,158 @@
+From cef98aab58acd65c3143434920b4b5000f4f63d1 Mon Sep 17 00:00:00 2001
+From: Miroslav Rezanina <mrezanin@redhat.com>
+Date: Fri, 30 Aug 2013 08:51:26 +0200
+Subject: [PATCH 082/212] Disable isa-parallel
+
+RH-Author: Miroslav Rezanina <mrezanin@redhat.com>
+Message-id: <af1ecd3f05bb1687f7289955f88b7f1f4575fa3b.1377851454.git.mrezanin@redhat.com>
+Patchwork-id: 53938
+O-Subject: [RHEL7 qemu-kvm PATCHv2 6/6] Disable isa-parallel
+Bugzilla: 1002286
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Michal Novotny <minovotn@redhat.com>
+
+From: Miroslav Rezanina <mrezanin@redhat.com>
+
+We are not going to support isa-parallel device so disabling it.
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+
+v2:
+ - new patch
+---
+ default-configs/i386-softmmu.mak     | 1 -
+ default-configs/mips-softmmu.mak     | 1 -
+ default-configs/mips64-softmmu.mak   | 1 -
+ default-configs/mips64el-softmmu.mak | 1 -
+ default-configs/mipsel-softmmu.mak   | 1 -
+ default-configs/ppc-softmmu.mak      | 1 -
+ default-configs/ppc64-softmmu.mak    | 1 -
+ default-configs/sparc64-softmmu.mak  | 1 -
+ default-configs/x86_64-softmmu.mak   | 1 -
+ 9 files changed, 9 deletions(-)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ default-configs/i386-softmmu.mak     |    1 -
+ default-configs/mips-softmmu.mak     |    1 -
+ default-configs/mips64-softmmu.mak   |    1 -
+ default-configs/mips64el-softmmu.mak |    1 -
+ default-configs/mipsel-softmmu.mak   |    1 -
+ default-configs/ppc-softmmu.mak      |    1 -
+ default-configs/ppc64-softmmu.mak    |    1 -
+ default-configs/sparc64-softmmu.mak  |    1 -
+ default-configs/x86_64-softmmu.mak   |    1 -
+ 9 files changed, 0 insertions(+), 9 deletions(-)
+
+diff --git a/default-configs/i386-softmmu.mak b/default-configs/i386-softmmu.mak
+index 4d5a567..cbd40ea 100644
+--- a/default-configs/i386-softmmu.mak
++++ b/default-configs/i386-softmmu.mak
+@@ -10,7 +10,6 @@ CONFIG_VGA_ISA=y
+ CONFIG_VGA_CIRRUS=y
+ CONFIG_VMMOUSE=y
+ CONFIG_SERIAL=y
+-CONFIG_PARALLEL=y
+ CONFIG_I8254=y
+ CONFIG_PCSPK=y
+ CONFIG_PCKBD=y
+diff --git a/default-configs/mips-softmmu.mak b/default-configs/mips-softmmu.mak
+index d0b89ab..5b4816a 100644
+--- a/default-configs/mips-softmmu.mak
++++ b/default-configs/mips-softmmu.mak
+@@ -10,7 +10,6 @@ CONFIG_VGA_ISA=y
+ CONFIG_VGA_ISA_MM=y
+ CONFIG_VGA_CIRRUS=y
+ CONFIG_SERIAL=y
+-CONFIG_PARALLEL=y
+ CONFIG_I8254=y
+ CONFIG_PCSPK=y
+ CONFIG_PCKBD=y
+diff --git a/default-configs/mips64-softmmu.mak b/default-configs/mips64-softmmu.mak
+index d21eebe..8b02d98 100644
+--- a/default-configs/mips64-softmmu.mak
++++ b/default-configs/mips64-softmmu.mak
+@@ -10,7 +10,6 @@ CONFIG_VGA_ISA=y
+ CONFIG_VGA_ISA_MM=y
+ CONFIG_VGA_CIRRUS=y
+ CONFIG_SERIAL=y
+-CONFIG_PARALLEL=y
+ CONFIG_I8254=y
+ CONFIG_PCSPK=y
+ CONFIG_PCKBD=y
+diff --git a/default-configs/mips64el-softmmu.mak b/default-configs/mips64el-softmmu.mak
+index df4664d..961fa04 100644
+--- a/default-configs/mips64el-softmmu.mak
++++ b/default-configs/mips64el-softmmu.mak
+@@ -10,7 +10,6 @@ CONFIG_VGA_ISA=y
+ CONFIG_VGA_ISA_MM=y
+ CONFIG_VGA_CIRRUS=y
+ CONFIG_SERIAL=y
+-CONFIG_PARALLEL=y
+ CONFIG_I8254=y
+ CONFIG_PCSPK=y
+ CONFIG_PCKBD=y
+diff --git a/default-configs/mipsel-softmmu.mak b/default-configs/mipsel-softmmu.mak
+index 2d9cece..8715e5c 100644
+--- a/default-configs/mipsel-softmmu.mak
++++ b/default-configs/mipsel-softmmu.mak
+@@ -10,7 +10,6 @@ CONFIG_VGA_ISA=y
+ CONFIG_VGA_ISA_MM=y
+ CONFIG_VGA_CIRRUS=y
+ CONFIG_SERIAL=y
+-CONFIG_PARALLEL=y
+ CONFIG_I8254=y
+ CONFIG_PCSPK=y
+ CONFIG_PCKBD=y
+diff --git a/default-configs/ppc-softmmu.mak b/default-configs/ppc-softmmu.mak
+index 73f46dc..50fded0 100644
+--- a/default-configs/ppc-softmmu.mak
++++ b/default-configs/ppc-softmmu.mak
+@@ -9,7 +9,6 @@ CONFIG_M48T59=y
+ CONFIG_VGA=y
+ CONFIG_VGA_PCI=y
+ CONFIG_SERIAL=y
+-CONFIG_PARALLEL=y
+ CONFIG_I8254=y
+ CONFIG_PCKBD=y
+ CONFIG_FDC=y
+diff --git a/default-configs/ppc64-softmmu.mak b/default-configs/ppc64-softmmu.mak
+index a9798a8..758e52b 100644
+--- a/default-configs/ppc64-softmmu.mak
++++ b/default-configs/ppc64-softmmu.mak
+@@ -9,7 +9,6 @@ CONFIG_M48T59=y
+ CONFIG_VGA=y
+ CONFIG_VGA_PCI=y
+ CONFIG_SERIAL=y
+-CONFIG_PARALLEL=y
+ CONFIG_I8254=y
+ CONFIG_PCKBD=y
+ CONFIG_FDC=y
+diff --git a/default-configs/sparc64-softmmu.mak b/default-configs/sparc64-softmmu.mak
+index 299c97b..34c13a4 100644
+--- a/default-configs/sparc64-softmmu.mak
++++ b/default-configs/sparc64-softmmu.mak
+@@ -8,7 +8,6 @@ CONFIG_PTIMER=y
+ CONFIG_VGA=y
+ CONFIG_VGA_PCI=y
+ CONFIG_SERIAL=y
+-CONFIG_PARALLEL=y
+ CONFIG_PCKBD=y
+ CONFIG_FDC=y
+ CONFIG_IDE_ISA=y
+diff --git a/default-configs/x86_64-softmmu.mak b/default-configs/x86_64-softmmu.mak
+index f1e9f3d..ddf71dc 100644
+--- a/default-configs/x86_64-softmmu.mak
++++ b/default-configs/x86_64-softmmu.mak
+@@ -10,7 +10,6 @@ CONFIG_VGA_ISA=y
+ CONFIG_VGA_CIRRUS=y
+ CONFIG_VMMOUSE=y
+ CONFIG_SERIAL=y
+-CONFIG_PARALLEL=y
+ CONFIG_I8254=y
+ CONFIG_PCSPK=y
+ CONFIG_PCKBD=y
+-- 
+1.7.1
+

@@ -1,0 +1,50 @@
+From 96cb2ba1c909ee947c626ff31f15895a9aae7f80 Mon Sep 17 00:00:00 2001
+Message-Id: <96cb2ba1c909ee947c626ff31f15895a9aae7f80.1418787305.git.jen@redhat.com>
+In-Reply-To: <c0f9fa126e925a00235d9077b474dabb4dbdfdc1.1418787305.git.jen@redhat.com>
+References: <c0f9fa126e925a00235d9077b474dabb4dbdfdc1.1418787305.git.jen@redhat.com>
+From: Jeffrey Cody <jcody@redhat.com>
+Date: Wed, 3 Dec 2014 20:00:39 -0600
+Subject: [CHANGE 02/12] block: allow bdrv_unref() to be passed NULL pointers
+To: rhvirt-patches@redhat.com,
+    jen@redhat.com
+
+RH-Author: Jeffrey Cody <jcody@redhat.com>
+Message-id: <0f4723184e867553426aeb7a7af4be87babab0da.1417620879.git.jcody@redhat.com>
+Patchwork-id: 62661
+O-Subject: [PATCH qemu-kvm-rhev RHEV7.1 v2 1/7] block: allow bdrv_unref() to be passed NULL pointers
+Bugzilla: 1136381
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+RH-Acked-by: Max Reitz <mreitz@redhat.com>
+RH-Acked-by: Fam Zheng <famz@redhat.com>
+RH-Acked-by: John Snow <jsnow@redhat.com>
+
+If bdrv_unref() is passed a NULL BDS pointer, it is safe to
+exit with no operation.  This will allow cleanup code to blindly
+call bdrv_unref() on a BDS that has been initialized to NULL.
+
+Reviewed-by: Max Reitz <mreitz@redhat.com>
+Signed-off-by: Jeff Cody <jcody@redhat.com>
+Signed-off-by: Kevin Wolf <kwolf@redhat.com>
+(cherry picked from commit 9a4d5ca60772e09d0cbac01f1b4778aa68e00eaa)
+Signed-off-by: Jeff E. Nelson <jen@redhat.com>
+---
+ block.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/block.c b/block.c
+index cdbdb6b..cef9bda 100644
+--- a/block.c
++++ b/block.c
+@@ -5425,6 +5425,9 @@ void bdrv_ref(BlockDriverState *bs)
+  * deleted. */
+ void bdrv_unref(BlockDriverState *bs)
+ {
++    if (!bs) {
++        return;
++    }
+     assert(bs->refcnt > 0);
+     if (--bs->refcnt == 0) {
+         bdrv_delete(bs);
+-- 
+2.1.0
+

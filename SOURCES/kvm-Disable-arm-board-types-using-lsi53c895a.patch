@@ -1,0 +1,69 @@
+From 4e4c51ec43925d78494e1b8af63db63fa2324852 Mon Sep 17 00:00:00 2001
+From: Miroslav Rezanina <mrezanin@redhat.com>
+Date: Thu, 9 Oct 2014 15:18:56 +0200
+Subject: [PATCH 2/5] Disable arm board types using lsi53c895a
+
+Message-id: <a062792ea188284342a10097ef8e9cdb9093c792.1412867392.git.mrezanin@redhat.com>
+Patchwork-id: 61660
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCHv5 2/5] Disable arm board types using lsi53c895a
+Bugzilla: 1108040
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+
+From: Miroslav Rezanina <mrezanin@redhat.com>
+
+As we removed lsi53c895a device support for RHEL 7, some of arm machine board
+types fail to start. We have to disable these boards to pass make check.
+
+This require to change build Makefile as default-config change is not
+properly handled in it.
+
+Note: Complete board support handling should be done later. This is minimal
+      fix to enable make check.
+      Proper Makefile <-> default-config relation should be done upstream
+      too.
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ default-configs/arm-softmmu.mak | 4 ----
+ hw/arm/Makefile.objs            | 5 +++--
+ 2 files changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/default-configs/arm-softmmu.mak b/default-configs/arm-softmmu.mak
+index f3513fa..9613fc4 100644
+--- a/default-configs/arm-softmmu.mak
++++ b/default-configs/arm-softmmu.mak
+@@ -75,13 +75,9 @@ CONFIG_TUSB6010=y
+ CONFIG_IMX=y
+ CONFIG_MAINSTONE=y
+ CONFIG_NSERIES=y
+-CONFIG_REALVIEW=y
+ CONFIG_ZAURUS=y
+ CONFIG_ZYNQ=y
+ 
+-CONFIG_VERSATILE_PCI=y
+-CONFIG_VERSATILE_I2C=y
+-
+ CONFIG_SDHCI=y
+ CONFIG_INTEGRATOR_DEBUG=y
+ 
+diff --git a/hw/arm/Makefile.objs b/hw/arm/Makefile.objs
+index 6088e53..4a68111 100644
+--- a/hw/arm/Makefile.objs
++++ b/hw/arm/Makefile.objs
+@@ -1,8 +1,9 @@
+ obj-y += boot.o collie.o exynos4_boards.o gumstix.o highbank.o
+ obj-$(CONFIG_DIGIC) += digic_boards.o
+ obj-y += integratorcp.o kzm.o mainstone.o musicpal.o nseries.o
+-obj-y += omap_sx1.o palm.o realview.o spitz.o stellaris.o
+-obj-y += tosa.o versatilepb.o vexpress.o virt.o xilinx_zynq.o z2.o
++obj-y += omap_sx1.o palm.o  spitz.o stellaris.o
++obj-${CONFIG_REALVIEW} += realview.o vexpress.o versatilepb.o
++obj-y += tosa.o virt.o xilinx_zynq.o z2.o
+ 
+ obj-y += armv7m.o exynos4210.o pxa2xx.o pxa2xx_gpio.o pxa2xx_pic.o
+ obj-$(CONFIG_DIGIC) += digic.o
+-- 
+1.8.3.1
+

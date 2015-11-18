@@ -1,0 +1,48 @@
+From f7c45d4c55ef7324e88193d466f9d7f45f583a43 Mon Sep 17 00:00:00 2001
+From: Fam Zheng <famz@redhat.com>
+Date: Wed, 26 Nov 2014 08:07:58 +0100
+Subject: [PATCH 3/4] virtio-scsi: Fix comment for VirtIOSCSIReq
+
+Message-id: <1416989278-17785-4-git-send-email-famz@redhat.com>
+Patchwork-id: 62594
+O-Subject: [RHEL-7.1 qemu-kvm-rhev PATCH v2 3/3] virtio-scsi: Fix comment for VirtIOSCSIReq
+Bugzilla: 1141656
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+
+The cdb is not zeroed by virtio_scsi_init_req, so fix the misleading
+comment.
+
+Suggested-by: Markus Armbruster <armbru@redhat.com>
+Signed-off-by: Fam Zheng <famz@redhat.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit f69c11158509e91c29f01e48ace8af227827411a)
+Signed-off-by: Fam Zheng <famz@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+
+Conflicts:
+	include/hw/virtio/virtio-scsi.h
+The structure definition is in virtio-scsi.c downstream, because we
+don't have bf359a44 which moved it to header for virtio-scsi-dataplane.
+---
+ hw/scsi/virtio-scsi.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/hw/scsi/virtio-scsi.c b/hw/scsi/virtio-scsi.c
+index 9ab956e..43f8e97 100644
+--- a/hw/scsi/virtio-scsi.c
++++ b/hw/scsi/virtio-scsi.c
+@@ -30,7 +30,8 @@ typedef struct VirtIOSCSIReq {
+     /* Note:
+      * - fields before elem are initialized by virtio_scsi_init_req;
+      * - elem is uninitialized at the time of allocation.
+-     * - fields after elem are zeroed by virtio_scsi_init_req.
++     * - fields after elem (except the ending cdb[]) are zeroed by
++     *   virtio_scsi_init_req.
+      * */
+ 
+     VirtQueueElement elem;
+-- 
+1.8.3.1
+

@@ -1,0 +1,102 @@
+From 0535ee796f3668fef37c5c67b551974473d3d012 Mon Sep 17 00:00:00 2001
+From: "Dr. David Alan Gilbert (git)" <dgilbert@redhat.com>
+Date: Wed, 19 Nov 2014 12:32:21 +0100
+Subject: [PATCH 10/10] exec: Handle multipage ranges in
+ invalidate_and_set_dirty()
+
+Message-id: <1416400341-18705-2-git-send-email-dgilbert@redhat.com>
+Patchwork-id: 62470
+O-Subject: [RHEL-7.1 qemu-kvm-rhev PATCH 1/1] exec: Handle multipage ranges in invalidate_and_set_dirty()
+Bugzilla: 1164759
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Amit Shah <amit.shah@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+
+From: Peter Maydell <peter.maydell@linaro.org>
+
+The code in invalidate_and_set_dirty() needs to handle addr/length
+combinations which cross guest physical page boundaries. This can happen,
+for example, when disk I/O reads large blocks into guest RAM which previously
+held code that we have cached translations for. Unfortunately we were only
+checking the clean/dirty status of the first page in the range, and then
+were calling a tb_invalidate function which only handles ranges that don't
+cross page boundaries. Fix the function to deal with multipage ranges.
+
+The symptoms of this bug were that guest code would misbehave (eg segfault),
+in particular after a guest reboot but potentially any time the guest
+reused a page of its physical RAM for new code.
+
+Cc: qemu-stable@nongnu.org
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Paolo Bonzini <pbonzini@redhat.com>
+Message-id: 1416167061-13203-1-git-send-email-peter.maydell@linaro.org
+(cherry picked from commit f874bf905ff2f8dcc17acbfc61e49a92a6f4d04b)
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ exec.c                  |  6 ++----
+ include/exec/ram_addr.h | 25 +++++++++++++++++++++++++
+ 2 files changed, 27 insertions(+), 4 deletions(-)
+
+diff --git a/exec.c b/exec.c
+index 9a3d041..5179983 100644
+--- a/exec.c
++++ b/exec.c
+@@ -2015,10 +2015,8 @@ int cpu_memory_rw_debug(CPUState *cpu, target_ulong addr,
+ static void invalidate_and_set_dirty(hwaddr addr,
+                                      hwaddr length)
+ {
+-    if (cpu_physical_memory_is_clean(addr)) {
+-        /* invalidate code */
+-        tb_invalidate_phys_page_range(addr, addr + length, 0);
+-        /* set dirty bit */
++    if (cpu_physical_memory_range_includes_clean(addr, length)) {
++        tb_invalidate_phys_range(addr, addr + length, 0);
+         cpu_physical_memory_set_dirty_range_nocode(addr, length);
+     }
+     xen_modified_memory(addr, length);
+diff --git a/include/exec/ram_addr.h b/include/exec/ram_addr.h
+index 6593be1..e50e71c 100644
+--- a/include/exec/ram_addr.h
++++ b/include/exec/ram_addr.h
+@@ -49,6 +49,21 @@ static inline bool cpu_physical_memory_get_dirty(ram_addr_t start,
+     return next < end;
+ }
+ 
++static inline bool cpu_physical_memory_get_clean(ram_addr_t start,
++                                                 ram_addr_t length,
++                                                 unsigned client)
++{
++    unsigned long end, page, next;
++
++    assert(client < DIRTY_MEMORY_NUM);
++
++    end = TARGET_PAGE_ALIGN(start + length) >> TARGET_PAGE_BITS;
++    page = start >> TARGET_PAGE_BITS;
++    next = find_next_zero_bit(ram_list.dirty_memory[client], end, page);
++
++    return next < end;
++}
++
+ static inline bool cpu_physical_memory_get_dirty_flag(ram_addr_t addr,
+                                                       unsigned client)
+ {
+@@ -64,6 +79,16 @@ static inline bool cpu_physical_memory_is_clean(ram_addr_t addr)
+     return !(vga && code && migration);
+ }
+ 
++static inline bool cpu_physical_memory_range_includes_clean(ram_addr_t start,
++                                                            ram_addr_t length)
++{
++    bool vga = cpu_physical_memory_get_clean(start, length, DIRTY_MEMORY_VGA);
++    bool code = cpu_physical_memory_get_clean(start, length, DIRTY_MEMORY_CODE);
++    bool migration =
++        cpu_physical_memory_get_clean(start, length, DIRTY_MEMORY_MIGRATION);
++    return vga || code || migration;
++}
++
+ static inline void cpu_physical_memory_set_dirty_flag(ram_addr_t addr,
+                                                       unsigned client)
+ {
+-- 
+1.8.3.1
+

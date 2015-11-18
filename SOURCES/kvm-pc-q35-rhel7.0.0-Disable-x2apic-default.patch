@@ -1,0 +1,47 @@
+From 5d27791054bbe73f5f8ec833917ffb1fcc7141b9 Mon Sep 17 00:00:00 2001
+From: Eduardo Habkost <ehabkost@redhat.com>
+Date: Fri, 15 Aug 2014 19:52:47 +0200
+Subject: [PATCH 16/16] pc-q35-rhel7.0.0: Disable x2apic default
+
+Message-id: <1408132367-16851-1-git-send-email-ehabkost@redhat.com>
+Patchwork-id: 60598
+O-Subject: [RHEL-7.1 qemu-kvm-rhev PATCH] pc-q35-rhel7.0.0: Disable x2apic default
+Bugzilla: 1118665
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+
+Bugzilla: 1118665
+Brew scratch build: http://brewweb.devel.redhat.com/brew/taskinfo?taskID=7850112
+
+The fix on commit 6db0e725503caac1c10902e692fbb697626fb3f2 didn't
+include pc-q35-rhel7.0.0, which also didn't have x2apic enabled on all
+CPU models on RHEL-7.0. Fix it too.
+
+Signed-off-by: Eduardo Habkost <ehabkost@redhat.com>
+---
+ hw/i386/pc_q35.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/i386/pc_q35.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/hw/i386/pc_q35.c b/hw/i386/pc_q35.c
+index abfaf60..bed13a2 100644
+--- a/hw/i386/pc_q35.c
++++ b/hw/i386/pc_q35.c
+@@ -437,6 +437,9 @@ machine_init(pc_q35_machine_init);
+ 
+ static void pc_q35_compat_rhel700(MachineState *machine)
+ {
++    /* Upstream enables it for everyone, we're a little more selective */
++    x86_cpu_compat_disable_kvm_features(FEAT_1_ECX, CPUID_EXT_X2APIC);
++
+     x86_cpu_compat_set_features("Conroe", FEAT_1_ECX, CPUID_EXT_X2APIC, 0);
+     x86_cpu_compat_set_features("Penryn", FEAT_1_ECX, CPUID_EXT_X2APIC, 0);
+     x86_cpu_compat_set_features("Nehalem", FEAT_1_ECX, CPUID_EXT_X2APIC, 0);
+-- 
+1.7.1
+

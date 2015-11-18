@@ -1,0 +1,76 @@
+From 445c312930e2f93862614c2313819a06c23dd0dd Mon Sep 17 00:00:00 2001
+From: dgibson <dgibson@redhat.com>
+Date: Wed, 5 Nov 2014 07:07:43 +0100
+Subject: [PATCH 12/15] Downstream only: Remove ISA bus and device support for
+ POWER
+
+Message-id: <1415171263-1587-4-git-send-email-dgibson@redhat.com>
+Patchwork-id: 62137
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCHv3 3/3] Downstream only: Remove ISA bus and device support for POWER
+Bugzilla: 1160120
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Gerd Hoffmann <kraxel@redhat.com>
+RH-Acked-by: Juan Quintela <quintela@redhat.com>
+
+There's no need for a KVM guest on POWER to have legacy ISA devices, or
+even an ISA bus at all.  Since we don't wish to support any extraneous
+devices, this removes support for the ISA bridge and all ISA devices from
+the configuration for ppc64.
+
+The i8259 interrupt controller is left in, because it can appear in a
+lot of contexts and causes other code dependency complications.
+
+Signed-off-by: David Gibson <dgibson@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ default-configs/ppc64-softmmu.mak | 12 ------------
+ tests/endianness-test.c           |  2 ++
+ 2 files changed, 2 insertions(+), 12 deletions(-)
+
+diff --git a/default-configs/ppc64-softmmu.mak b/default-configs/ppc64-softmmu.mak
+index 9a9f40e..6febccb 100644
+--- a/default-configs/ppc64-softmmu.mak
++++ b/default-configs/ppc64-softmmu.mak
+@@ -15,24 +15,12 @@ CONFIG_ISA_MMIO=y
+ CONFIG_VGA=y
+ CONFIG_VGA_PCI=y
+ CONFIG_SERIAL=y
+-CONFIG_I8254=y
+-CONFIG_I8257=y
+-CONFIG_I82374=y
+-CONFIG_PC87312=y
+-CONFIG_PCSPK=y
+ CONFIG_I8259=y
+ CONFIG_PSERIES=y
+ # For pSeries
+ CONFIG_XICS=$(CONFIG_PSERIES)
+ CONFIG_XICS_KVM=$(and $(CONFIG_PSERIES),$(CONFIG_KVM))
+-# For PReP
+-CONFIG_I82378=y
+ CONFIG_I8259=y
+-CONFIG_I8254=y
+-CONFIG_PCSPK=y
+-CONFIG_I82374=y
+-CONFIG_I8257=y
+-CONFIG_MC146818RTC=y
+ CONFIG_ISA_TESTDEV=y
+ CONFIG_LIBDECNUMBER=y
+ CONFIG_USB_OHCI=y
+diff --git a/tests/endianness-test.c b/tests/endianness-test.c
+index 0acac00..f2b7c56 100644
+--- a/tests/endianness-test.c
++++ b/tests/endianness-test.c
+@@ -46,8 +46,10 @@ static const TestCase test_cases[] = {
+     { "ppc", "bamboo", 0xe8000000, .bswap = true, .superio = "i82378" },
+     { "ppc64", "mac99", 0xf2000000, .bswap = true, .superio = "i82378" },
+ #endif /* Disabled for RHEL, since CONFIG_MAC is not enabled */
++#if 0 /* Disabled for RHEL, since ISA is not enabled */
+     { "ppc64", "pseries", 0x10080000000ULL,
+       .bswap = true, .superio = "i82378" },
++#endif /* Disabled for RHEL, since ISA is not enabled */
+     { "sh4", "r2d", 0xfe240000, .superio = "i82378" },
+     { "sh4eb", "r2d", 0xfe240000, .bswap = true, .superio = "i82378" },
+     { "sparc64", "sun4u", 0x1fe02000000LL, .bswap = true },
+-- 
+1.8.3.1
+

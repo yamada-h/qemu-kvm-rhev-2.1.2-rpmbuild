@@ -1,0 +1,146 @@
+From bbc55d2cbca5d378448d3ecc0c401d1dc0a16cfd Mon Sep 17 00:00:00 2001
+From: John Snow <jsnow@redhat.com>
+Date: Tue, 7 Oct 2014 10:52:21 +0200
+Subject: [PATCH 03/21] pc/vl: Add units-per-default-bus property
+
+Message-id: <1412679144-17302-4-git-send-email-jsnow@redhat.com>
+Patchwork-id: 61599
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH 3/6] pc/vl: Add units-per-default-bus property
+Bugzilla: 946993
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+
+This patch adds the 'units_per_default_bus' property which
+allows individual boards to declare their desired
+index => (bus,unit) mapping for their default HBA, so that
+boards such as Q35 can specify that its default if_ide HBA,
+AHCI, only accepts one unit per bus.
+
+This property only overrides the mapping for drives matching
+the block_default_type interface.
+
+This patch also adds this property to *all* past and present
+Q35 machine types. This retroactive addition is justified
+because the previous erroneous index=>(bus,unit) mappings
+caused by lack of such a property were not utilized due to
+lack of initialization code in the Q35 init routine.
+
+Further, semantically, the Q35 board type has always had the
+property that its default HBA, AHCI, only accepts one unit per
+bus. The new code added to add devices to drives relies upon
+the accuracy of this mapping. Thus, the property is applied
+retroactively to reduce complexity of allowing IDE HBAs with
+different units per bus.
+
+Examples:
+
+Prior to this patch, all IDE HBAs were assumed to use 2 units
+per bus (Master, Slave). When using Q35 and AHCI, however, we
+only allow one unit per bus.
+
+-hdb foo.qcow2 would become index=1, or bus=0,unit=1.
+-hdd foo.qcow2 would become index=3, or bus=1,unit=1.
+-drive file=foo.qcow2,index=5 becomes bus=2,unit=1.
+
+These are invalid for AHCI. They now become, under Q35 only:
+
+-hdb foo.qcow2 --> index=1, bus=1, unit=0.
+-hdd foo.qcow2 --> index=3, bus=3, unit=0.
+-drive file=foo.qcow2,index=5 --> bus=5,unit=0.
+
+The mapping is adjusted based on the fact that the default IF
+for the Q35 machine type is IF_IDE, and units-per-default-bus
+overrides the IDE mapping from its default of 2 units per bus
+to just 1 unit per bus.
+
+Signed-off-by: John Snow <jsnow@redhat.com>
+Reviewed-by: Markus Armbruster <armbru@redhat.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Message-id: 1412187569-23452-4-git-send-email-jsnow@redhat.com
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit 1602651833c081e32366c9e534ad72e4287840c5)
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/i386/pc.c        | 1 +
+ hw/i386/pc_q35.c    | 3 ++-
+ include/hw/boards.h | 2 ++
+ vl.c                | 8 ++++++++
+ 4 files changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/hw/i386/pc.c b/hw/i386/pc.c
+index 3a5b75c..07b0c8e 100644
+--- a/hw/i386/pc.c
++++ b/hw/i386/pc.c
+@@ -1529,6 +1529,7 @@ static void pc_generic_machine_class_init(ObjectClass *oc, void *data)
+     mc->hot_add_cpu = qm->hot_add_cpu;
+     mc->kvm_type = qm->kvm_type;
+     mc->block_default_type = qm->block_default_type;
++    mc->units_per_default_bus = qm->units_per_default_bus;
+     mc->max_cpus = qm->max_cpus;
+     mc->no_serial = qm->no_serial;
+     mc->no_parallel = qm->no_parallel;
+diff --git a/hw/i386/pc_q35.c b/hw/i386/pc_q35.c
+index 80e2295..a992777 100644
+--- a/hw/i386/pc_q35.c
++++ b/hw/i386/pc_q35.c
+@@ -347,7 +347,8 @@ static void pc_q35_init_1_4(MachineState *machine)
+ #define PC_Q35_MACHINE_OPTIONS \
+     PC_DEFAULT_MACHINE_OPTIONS, \
+     .desc = "Standard PC (Q35 + ICH9, 2009)", \
+-    .hot_add_cpu = pc_hot_add_cpu
++    .hot_add_cpu = pc_hot_add_cpu, \
++    .units_per_default_bus = 1
+ 
+ #define PC_Q35_2_1_MACHINE_OPTIONS                      \
+     PC_Q35_MACHINE_OPTIONS,                             \
+diff --git a/include/hw/boards.h b/include/hw/boards.h
+index 605a970..f8c81e1 100644
+--- a/include/hw/boards.h
++++ b/include/hw/boards.h
+@@ -28,6 +28,7 @@ struct QEMUMachine {
+     QEMUMachineHotAddCPUFunc *hot_add_cpu;
+     QEMUMachineGetKvmtypeFunc *kvm_type;
+     BlockInterfaceType block_default_type;
++    int units_per_default_bus;
+     int max_cpus;
+     unsigned int no_serial:1,
+         no_parallel:1,
+@@ -86,6 +87,7 @@ struct MachineClass {
+     int (*kvm_type)(const char *arg);
+ 
+     BlockInterfaceType block_default_type;
++    int units_per_default_bus;
+     int max_cpus;
+     unsigned int no_serial:1,
+         no_parallel:1,
+diff --git a/vl.c b/vl.c
+index 7b1b330..5d7c4e6 100644
+--- a/vl.c
++++ b/vl.c
+@@ -1566,6 +1566,7 @@ static void machine_class_init(ObjectClass *oc, void *data)
+     mc->hot_add_cpu = qm->hot_add_cpu;
+     mc->kvm_type = qm->kvm_type;
+     mc->block_default_type = qm->block_default_type;
++    mc->units_per_default_bus = qm->units_per_default_bus;
+     mc->max_cpus = qm->max_cpus;
+     mc->no_serial = qm->no_serial;
+     mc->no_parallel = qm->no_parallel;
+@@ -4356,6 +4357,13 @@ int main(int argc, char **argv, char **envp)
+     blk_mig_init();
+     ram_mig_init();
+ 
++    /* If the currently selected machine wishes to override the units-per-bus
++     * property of its default HBA interface type, do so now. */
++    if (machine_class->units_per_default_bus) {
++        override_max_devs(machine_class->block_default_type,
++                          machine_class->units_per_default_bus);
++    }
++
+     /* open the virtual block devices */
+     if (snapshot)
+         qemu_opts_foreach(qemu_find_opts("drive"), drive_enable_snapshot, NULL, 0);
+-- 
+1.8.3.1
+

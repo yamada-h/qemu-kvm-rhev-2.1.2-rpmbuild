@@ -1,0 +1,68 @@
+From 27c1177c3174c50918e174e1c92f29711ebc193e Mon Sep 17 00:00:00 2001
+From: John Snow <jsnow@redhat.com>
+Date: Tue, 7 Oct 2014 10:52:23 +0200
+Subject: [PATCH 05/21] qtest/bios-tables: Correct Q35 command line
+
+Message-id: <1412679144-17302-6-git-send-email-jsnow@redhat.com>
+Patchwork-id: 61601
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH 5/6] qtest/bios-tables: Correct Q35 command line
+Bugzilla: 946993
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+
+If the Q35 board types are to begin recognizing
+and decoding syntactic sugar for drive/device
+declarations, then workarounds found within
+the qtests suite need to be adjusted to prevent
+any test failures after the fix.
+
+bios-tables-test improperly uses this cli:
+-drive file=etc,id=hd -device ide-hd,drive=hd
+
+Which will create a drive and device due to
+the lack of specifying if=none. Then, it will
+attempt to create a second device and fail.
+
+This patch corrects this test to always use
+the full, non-sugared -device/-drive syntax
+for both PC and Q35.
+
+Signed-off-by: John Snow <jsnow@redhat.com>
+Reviewed-by: Markus Armbruster <armbru@redhat.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Message-id: 1412187569-23452-6-git-send-email-jsnow@redhat.com
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit 6b9e03a4e7598765a6cebb7618f2eeb22e928f6e)
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ tests/bios-tables-test.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
+
+diff --git a/tests/bios-tables-test.c b/tests/bios-tables-test.c
+index 045eb27..8c3d27a 100644
+--- a/tests/bios-tables-test.c
++++ b/tests/bios-tables-test.c
+@@ -714,14 +714,12 @@ static void test_acpi_one(const char *params, test_data *data)
+     uint8_t signature_high;
+     uint16_t signature;
+     int i;
+-    const char *device = "";
+ 
+-    if (!g_strcmp0(data->machine, MACHINE_Q35)) {
+-        device = ",id=hd -device ide-hd,drive=hd";
+-    }
++    args = g_strdup_printf("-net none -display none %s "
++                           "-drive id=hd0,if=none,file=%s "
++                           "-device ide-hd,drive=hd0 ",
++                           params ? params : "", disk);
+ 
+-    args = g_strdup_printf("-net none -display none %s -drive file=%s%s,",
+-                           params ? params : "", disk, device);
+     qtest_start(args);
+ 
+    /* Wait at most 1 minute */
+-- 
+1.8.3.1
+

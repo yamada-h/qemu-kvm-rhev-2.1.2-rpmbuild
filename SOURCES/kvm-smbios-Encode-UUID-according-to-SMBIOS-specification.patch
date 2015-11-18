@@ -1,0 +1,232 @@
+From 9848b1a07f1505b0b7ef3de66589532bd39adf74 Mon Sep 17 00:00:00 2001
+From: Eduardo Habkost <ehabkost@redhat.com>
+Date: Tue, 4 Nov 2014 01:56:38 +0100
+Subject: [PATCH 04/15] smbios: Encode UUID according to SMBIOS specification
+
+Message-id: <1415066198-23536-1-git-send-email-ehabkost@redhat.com>
+Patchwork-id: 62054
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH] smbios: Encode UUID according to SMBIOS specification
+Bugzilla: 1152922
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Igor Mammedov <imammedo@redhat.com>
+RH-Acked-by: Gerd Hoffmann <kraxel@redhat.com>
+
+Differently from older versions, SMBIOS version 2.6 is explicit about
+the encoding of UUID fields:
+
+> Although RFC 4122 recommends network byte order for all fields, the PC
+> industry (including the ACPI, UEFI, and Microsoft specifications) has
+> consistently used little-endian byte encoding for the first three fields:
+> time_low, time_mid, time_hi_and_version. The same encoding, also known as
+> wire format, should also be used for the SMBIOS representation of the UUID.
+>
+> The UUID {00112233-4455-6677-8899-AABBCCDDEEFF} would thus be represented
+> as 33 22 11 00 55 44 77 66 88 99 AA BB CC DD EE FF.
+
+The dmidecode tool implements this and decodes the above "wire format"
+when SMBIOS version >= 2.6. We moved from SMBIOS version 2.4 to 2.8 when
+we started building the SMBIOS entry point inside QEMU, on commit
+c97294ec1b9e36887e119589d456557d72ab37b5.
+
+Change smbios_build_type_1_table() to encode the UUID as specified.
+
+To make sure we won't change the guest-visible UUID when upgrading to a
+newer QEMU version, keep the old behavior on pc-*-2.1 and older.
+
+Signed-off-by: Eduardo Habkost <ehabkost@redhat.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+(cherry picked from commit caad057bb6ce86a9cb71520af395fd0bd04a659f)
+Signed-off-by: Eduardo Habkost <ehabkost@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+
+Conflicts:
+	hw/i386/pc_piix.c
+	hw/i386/pc_q35.c
+
+[Backport note: backport doesn't require compat code setting
+smbios_uuid_encoded=false because bug compatibility is required only on
+pc-*-2.1. RHEL-7.0 and RHEL-6 machine-types don't have the bug. The
+smbios_uuid_encoded variables were still kept to avoid future backport
+conflicts, though.]
+---
+ hw/i386/pc_piix.c        |  4 +++-
+ hw/i386/pc_q35.c         |  4 +++-
+ hw/i386/smbios.c         | 27 ++++++++++++++++++++++++---
+ include/hw/i386/smbios.h | 17 +++++++++++++++--
+ vl.c                     |  3 +++
+ 5 files changed, 48 insertions(+), 7 deletions(-)
+
+diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
+index 8c4a5d9..6386eaf 100644
+--- a/hw/i386/pc_piix.c
++++ b/hw/i386/pc_piix.c
+@@ -64,6 +64,7 @@ static bool has_acpi_build = true;
+ static int legacy_acpi_table_size;
+ static bool smbios_defaults = true;
+ static bool smbios_legacy_mode;
++static bool smbios_uuid_encoded = true;
+ /* Make sure that guest addresses aligned at 1Gbyte boundaries get mapped to
+  * host addresses aligned at 1Gbyte boundaries.  This way we can use 1GByte
+  * pages in the host.
+@@ -173,7 +174,8 @@ static void pc_init1(MachineState *machine,
+     if (smbios_defaults) {
+         MachineClass *mc = MACHINE_GET_CLASS(machine);
+         /* These values are guest ABI, do not change */
+-        smbios_set_defaults("Red Hat", "KVM", mc->desc, smbios_legacy_mode);
++        smbios_set_defaults("Red Hat", "KVM", mc->desc, smbios_legacy_mode,
++                            smbios_uuid_encoded);
+     }
+ 
+     /* allocate ram and load rom/bios */
+diff --git a/hw/i386/pc_q35.c b/hw/i386/pc_q35.c
+index 806be3b..85271ae 100644
+--- a/hw/i386/pc_q35.c
++++ b/hw/i386/pc_q35.c
+@@ -53,6 +53,7 @@ static bool has_pci_info;
+ static bool has_acpi_build = true;
+ static bool smbios_defaults = true;
+ static bool smbios_legacy_mode;
++static bool smbios_uuid_encoded = true;
+ /* Make sure that guest addresses aligned at 1Gbyte boundaries get mapped to
+  * host addresses aligned at 1Gbyte boundaries.  This way we can use 1GByte
+  * pages in the host.
+@@ -164,7 +165,8 @@ static void pc_q35_init(MachineState *machine)
+     if (smbios_defaults) {
+         MachineClass *mc = MACHINE_GET_CLASS(machine);
+         /* These values are guest ABI, do not change */
+-        smbios_set_defaults("Red Hat", "KVM", mc->desc, smbios_legacy_mode);
++        smbios_set_defaults("Red Hat", "KVM", mc->desc, smbios_legacy_mode,
++                            smbios_uuid_encoded);
+     }
+ 
+     /* allocate ram and load rom/bios */
+diff --git a/hw/i386/smbios.c b/hw/i386/smbios.c
+index b875be3..72862d8 100644
+--- a/hw/i386/smbios.c
++++ b/hw/i386/smbios.c
+@@ -48,6 +48,7 @@ struct smbios_table {
+ static uint8_t *smbios_entries;
+ static size_t smbios_entries_len;
+ static bool smbios_legacy = true;
++static bool smbios_uuid_encoded = true;
+ /* end: legacy structures & constants for <= 2.0 machines */
+ 
+ 
+@@ -391,6 +392,11 @@ static void smbios_build_type_1_fields(void)
+     smbios_maybe_add_str(1, offsetof(struct smbios_type_1, family_str),
+                          type1.family);
+     if (qemu_uuid_set) {
++        /* We don't encode the UUID in the "wire format" here because this
++         * function is for legacy mode and needs to keep the guest ABI, and
++         * because we don't know what's the SMBIOS version advertised by the
++         * BIOS.
++         */
+         smbios_add_field(1, offsetof(struct smbios_type_1, uuid),
+                          qemu_uuid, 16);
+     }
+@@ -523,6 +529,19 @@ static void smbios_build_type_0_table(void)
+     SMBIOS_BUILD_TABLE_POST;
+ }
+ 
++/* Encode UUID from the big endian encoding described on RFC4122 to the wire
++ * format specified by SMBIOS version 2.6.
++ */
++static void smbios_encode_uuid(struct smbios_uuid *uuid, const uint8_t *buf)
++{
++    memcpy(uuid, buf, 16);
++    if (smbios_uuid_encoded) {
++        uuid->time_low = bswap32(uuid->time_low);
++        uuid->time_mid = bswap16(uuid->time_mid);
++        uuid->time_hi_and_version = bswap16(uuid->time_hi_and_version);
++    }
++}
++
+ static void smbios_build_type_1_table(void)
+ {
+     SMBIOS_BUILD_TABLE_PRE(1, 0x100, true); /* required */
+@@ -532,9 +551,9 @@ static void smbios_build_type_1_table(void)
+     SMBIOS_TABLE_SET_STR(1, version_str, type1.version);
+     SMBIOS_TABLE_SET_STR(1, serial_number_str, type1.serial);
+     if (qemu_uuid_set) {
+-        memcpy(t->uuid, qemu_uuid, 16);
++        smbios_encode_uuid(&t->uuid, qemu_uuid);
+     } else {
+-        memset(t->uuid, 0, 16);
++        memset(&t->uuid, 0, 16);
+     }
+     t->wake_up_type = 0x06; /* power switch */
+     SMBIOS_TABLE_SET_STR(1, sku_number_str, type1.sku);
+@@ -746,10 +765,12 @@ void smbios_set_cpuid(uint32_t version, uint32_t features)
+     }
+ 
+ void smbios_set_defaults(const char *manufacturer, const char *product,
+-                         const char *version, bool legacy_mode)
++                         const char *version, bool legacy_mode,
++                         bool uuid_encoded)
+ {
+     smbios_have_defaults = true;
+     smbios_legacy = legacy_mode;
++    smbios_uuid_encoded = uuid_encoded;
+ 
+     /* drop unwanted version of command-line file blob(s) */
+     if (smbios_legacy) {
+diff --git a/include/hw/i386/smbios.h b/include/hw/i386/smbios.h
+index a3f4d88..d2850be 100644
+--- a/include/hw/i386/smbios.h
++++ b/include/hw/i386/smbios.h
+@@ -20,7 +20,8 @@
+ void smbios_entry_add(QemuOpts *opts);
+ void smbios_set_cpuid(uint32_t version, uint32_t features);
+ void smbios_set_defaults(const char *manufacturer, const char *product,
+-                         const char *version, bool legacy_mode);
++                         const char *version, bool legacy_mode,
++                         bool uuid_encoded);
+ uint8_t *smbios_get_table_legacy(size_t *length);
+ void smbios_get_tables(uint8_t **tables, size_t *tables_len,
+                        uint8_t **anchor, size_t *anchor_len);
+@@ -72,6 +73,18 @@ struct smbios_type_0 {
+     uint8_t embedded_controller_minor_release;
+ } QEMU_PACKED;
+ 
++/* UUID encoding. The time_* fields are little-endian, as specified by SMBIOS
++ * version 2.6.
++ */
++struct smbios_uuid {
++    uint32_t time_low;
++    uint16_t time_mid;
++    uint16_t time_hi_and_version;
++    uint8_t clock_seq_hi_and_reserved;
++    uint8_t clock_seq_low;
++    uint8_t node[6];
++} QEMU_PACKED;
++
+ /* SMBIOS type 1 - System Information */
+ struct smbios_type_1 {
+     struct smbios_structure_header header;
+@@ -79,7 +92,7 @@ struct smbios_type_1 {
+     uint8_t product_name_str;
+     uint8_t version_str;
+     uint8_t serial_number_str;
+-    uint8_t uuid[16];
++    struct smbios_uuid uuid;
+     uint8_t wake_up_type;
+     uint8_t sku_number_str;
+     uint8_t family_str;
+diff --git a/vl.c b/vl.c
+index 5d7c4e6..dfc48b7 100644
+--- a/vl.c
++++ b/vl.c
+@@ -199,6 +199,9 @@ int nb_numa_nodes;
+ int max_numa_nodeid;
+ NodeInfo numa_info[MAX_NODES];
+ 
++/* The bytes in qemu_uuid[] are in the order specified by RFC4122, _not_ in the
++ * little-endian "wire format" described in the SMBIOS 2.6 specification.
++ */
+ uint8_t qemu_uuid[16];
+ bool qemu_uuid_set;
+ 
+-- 
+1.8.3.1
+

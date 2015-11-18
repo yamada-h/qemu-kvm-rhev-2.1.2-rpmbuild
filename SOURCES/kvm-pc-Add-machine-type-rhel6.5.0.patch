@@ -1,0 +1,90 @@
+From 32069b11e18b05f3103ae47dd95f10ee75df0f9e Mon Sep 17 00:00:00 2001
+From: Miroslav Rezanina <mrezanin@redhat.com>
+Date: Wed, 31 Jul 2013 08:06:25 +0200
+Subject: [PATCH 049/212] pc: Add machine type "rhel6.5.0"
+
+Message-id: <1375201922-6794-15-git-send-email-armbru@redhat.com>
+Patchwork-id: 52824
+O-Subject: [RHEL-7 PATCH v3 14/15] pc: Add machine type "rhel6.5.0"
+Bugzilla: 983991
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Bandan Das <bsd@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+
+Match RHEL-6's virtio-scsi-pci.vectors.  Note: upstream commit 4c205d0
+"virtio-scsi: enable MSI-X support" changed vectors from 2 to
+DEV_NVECTORS_UNSPECIFIED.  The necessary compat_props to keep it at 2
+for old machine types were forgotten.  The RHEL-6 backport (commit
+0ef7672) added them.
+
+Match RHEL-6's has_pvpanic.
+
+RHEL-6's disable_kvm_sep() will be covered separately (bug 918907).
+
+Signed-off-by: Markus Armbruster <armbru@redhat.com>
+---
+ hw/i386/pc_piix.c |   30 ++++++++++++++++++++++++++++--
+ 1 files changed, 28 insertions(+), 2 deletions(-)
+
+diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
+index 37ddc93..e77878f 100644
+--- a/hw/i386/pc_piix.c
++++ b/hw/i386/pc_piix.c
+@@ -941,7 +941,7 @@ static QEMUMachine pc_machine_rhel700 = {
+     .is_default = 1,
+ };
+ 
+-#define PC_RHEL6_4_COMPAT \
++#define PC_RHEL6_5_COMPAT \
+     {\
+         .driver   = "scsi-hd",\
+         .property = "discard_granularity",\
+@@ -1029,11 +1029,36 @@ static QEMUMachine pc_machine_rhel700 = {
+         .value    = stringify(1),\
+     }
+ 
+-static void pc_init_rhel640(MachineState *machine)
++static void pc_init_rhel650(MachineState *machine)
+ {
+     pc_init_rhel700(machine);
+ }
+ 
++static QEMUMachine pc_machine_rhel650 = {
++    PC_DEFAULT_MACHINE_OPTIONS,
++    .name = "rhel6.5.0",
++    .desc = "RHEL 6.5.0 PC",
++    .init = pc_init_rhel650,
++    .max_cpus = 255,
++    .compat_props = (GlobalProperty[]) {
++        PC_RHEL6_5_COMPAT,
++        { /* end of list */ }
++    },
++};
++
++#define PC_RHEL6_4_COMPAT \
++    PC_RHEL6_5_COMPAT,\
++    {\
++        .driver   = "virtio-scsi-pci",\
++        .property = "vectors",\
++        .value    = stringify(2),\
++    }
++
++static void pc_init_rhel640(MachineState *machine)
++{
++    pc_init_rhel650(machine);
++}
++
+ static QEMUMachine pc_machine_rhel640 = {
+     PC_DEFAULT_MACHINE_OPTIONS,
+     .name = "rhel6.4.0",
+@@ -1214,6 +1239,7 @@ static QEMUMachine pc_machine_rhel600 = {
+ static void rhel_machine_init(void)
+ {
+     qemu_register_pc_machine(&pc_machine_rhel700);
++    qemu_register_pc_machine(&pc_machine_rhel650);
+     qemu_register_pc_machine(&pc_machine_rhel640);
+     qemu_register_pc_machine(&pc_machine_rhel630);
+     qemu_register_pc_machine(&pc_machine_rhel620);
+-- 
+1.7.1
+

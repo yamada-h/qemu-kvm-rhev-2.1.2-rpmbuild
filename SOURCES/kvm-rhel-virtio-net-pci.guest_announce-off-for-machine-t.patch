@@ -1,0 +1,43 @@
+From a36ec233fb5db36255aab2ac4f1de6165a94e47a Mon Sep 17 00:00:00 2001
+From: Markus Armbruster <armbru@redhat.com>
+Date: Mon, 11 Aug 2014 07:54:46 +0200
+Subject: [PATCH 12/16] rhel: virtio-net-pci.guest_announce=off for machine types <= 7.0
+
+Message-id: <1407743689-13553-13-git-send-email-armbru@redhat.com>
+Patchwork-id: 60506
+O-Subject: [PATCH RHEV-7.1 qemu-kvm-rhev 12/15] rhel: virtio-net-pci.guest_announce=off for machine types <= 7.0
+Bugzilla: 1118665
+RH-Acked-by: Eduardo Habkost <ehabkost@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+
+Update RHEL compatibility properties for upstream commit f57fcf7.
+
+Signed-off-by: Markus Armbruster <armbru@redhat.com>
+---
+ include/hw/i386/pc.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ include/hw/i386/pc.h |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/include/hw/i386/pc.h b/include/hw/i386/pc.h
+index 0675b71..032abfe 100644
+--- a/include/hw/i386/pc.h
++++ b/include/hw/i386/pc.h
+@@ -545,6 +545,10 @@ bool e820_get_entry(int, uint32_t, uint64_t *, uint64_t *);
+             .property = "prog_if",\
+             .value    = stringify(0),\
+         },{\
++            .driver   = "virtio-net-pci",\
++            .property = "guest_announce",\
++            .value    = "off",\
++        },{\
+             .driver   = "PIIX4_PM",\
+             .property = "acpi-pci-hotplug-with-bridge-support",\
+             .value    = "off",\
+-- 
+1.7.1
+

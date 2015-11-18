@@ -1,0 +1,90 @@
+From 1aae4e447942bc1c703daf321161310374aababa Mon Sep 17 00:00:00 2001
+From: John Snow <jsnow@redhat.com>
+Date: Tue, 7 Oct 2014 10:52:24 +0200
+Subject: [PATCH 06/21] q35/ahci: Pick up -cdrom and -hda options
+
+Message-id: <1412679144-17302-7-git-send-email-jsnow@redhat.com>
+Patchwork-id: 61602
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH 6/6] q35/ahci: Pick up -cdrom and -hda options
+Bugzilla: 946993
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+
+This patch implements the backend for the Q35 board
+for us to be able to pick up and use drives defined
+by the -cdrom, -hda, or -drive if=ide shorthand options.
+
+Signed-off-by: John Snow <jsnow@redhat.com>
+Reviewed-by: Markus Armbruster <armbru@redhat.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Message-id: 1412187569-23452-7-git-send-email-jsnow@redhat.com
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit d93162e13c1f4a5b2a4de6b1997f32e3fca19e67)
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/i386/pc_q35.c |  4 ++++
+ hw/ide/ahci.c    | 15 +++++++++++++++
+ hw/ide/ahci.h    |  2 ++
+ 3 files changed, 21 insertions(+)
+
+diff --git a/hw/i386/pc_q35.c b/hw/i386/pc_q35.c
+index a992777..806be3b 100644
+--- a/hw/i386/pc_q35.c
++++ b/hw/i386/pc_q35.c
+@@ -87,6 +87,7 @@ static void pc_q35_init(MachineState *machine)
+     DeviceState *icc_bridge;
+     PcGuestInfo *guest_info;
+     ram_addr_t lowmem;
++    DriveInfo *hd[MAX_SATA_PORTS];
+ 
+     /* Check whether RAM fits below 4G (leaving 1/2 GByte for IO memory
+      * and 256 Mbytes for PCI Express Enhanced Configuration Access Mapping
+@@ -254,6 +255,9 @@ static void pc_q35_init(MachineState *machine)
+                                            true, "ich9-ahci");
+     idebus[0] = qdev_get_child_bus(&ahci->qdev, "ide.0");
+     idebus[1] = qdev_get_child_bus(&ahci->qdev, "ide.1");
++    g_assert_cmpint(MAX_SATA_PORTS, ==, ICH_AHCI(ahci)->ahci.ports);
++    ide_drive_get(hd, ICH_AHCI(ahci)->ahci.ports);
++    ahci_ide_create_devs(ahci, hd);
+ 
+     if (usb_enabled(false)) {
+         /* Should we create 6 UHCI according to ich9 spec? */
+diff --git a/hw/ide/ahci.c b/hw/ide/ahci.c
+index 604152a..379e77f 100644
+--- a/hw/ide/ahci.c
++++ b/hw/ide/ahci.c
+@@ -1372,3 +1372,18 @@ static void sysbus_ahci_register_types(void)
+ }
+ 
+ type_init(sysbus_ahci_register_types)
++
++void ahci_ide_create_devs(PCIDevice *dev, DriveInfo **hd)
++{
++    AHCIPCIState *d = ICH_AHCI(dev);
++    AHCIState *ahci = &d->ahci;
++    int i;
++
++    for (i = 0; i < ahci->ports; i++) {
++        if (hd[i] == NULL) {
++            continue;
++        }
++        ide_create_drive(&ahci->dev[i].port, 0, hd[i]);
++    }
++
++}
+diff --git a/hw/ide/ahci.h b/hw/ide/ahci.h
+index f418b30..0887287 100644
+--- a/hw/ide/ahci.h
++++ b/hw/ide/ahci.h
+@@ -353,4 +353,6 @@ void ahci_uninit(AHCIState *s);
+ 
+ void ahci_reset(AHCIState *s);
+ 
++void ahci_ide_create_devs(PCIDevice *dev, DriveInfo **hd);
++
+ #endif /* HW_IDE_AHCI_H */
+-- 
+1.8.3.1
+

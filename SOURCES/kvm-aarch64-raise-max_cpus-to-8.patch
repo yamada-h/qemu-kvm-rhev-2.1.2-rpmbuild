@@ -1,0 +1,43 @@
+From 88b42ddb9f5064991ea2a4829f355a167f132ae8 Mon Sep 17 00:00:00 2001
+From: Joel Schopp <joel.schopp@amd.com>
+Date: Fri, 7 Nov 2014 12:59:04 -0500
+Subject: [PATCH 01/10] aarch64: raise max_cpus to 8
+
+Message-id: <1415383153-28089-2-git-send-email-wei@redhat.com>
+Patchwork-id: 62213
+O-Subject: [RHELSA qemu-kvm-rhev PATCH 01/10] aarch64: raise max_cpus to 8
+Bugzilla: 1160325
+RH-Acked-by: Andrew Jones <drjones@redhat.com>
+
+I'm running on a system with 8 cpus and it would be nice to have qemu
+support all of them.  The attached patch does that and has been tested.
+
+That said, I'm not sure if 8 is enough or if we want to bump this even higher
+now before systems with many more cpus come along. 255 anyone?
+
+Cc: Peter Maydell <peter.maydell@linaro.org>
+Signed-off-by: Joel Schopp <joel.schopp@amd.com>
+Message-id: 20140819213304.19537.2834.stgit@joelaarch64.amd.com
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+
+Signed-off-by: Wei Huang <wei@redhat.com>
+---
+ hw/arm/virt.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/hw/arm/virt.c b/hw/arm/virt.c
+index c8fdac4..7b83816 100644
+--- a/hw/arm/virt.c
++++ b/hw/arm/virt.c
+@@ -541,7 +541,7 @@ static QEMUMachine machvirt_a15_machine = {
+     .name = "virt",
+     .desc = "ARM Virtual Machine",
+     .init = machvirt_init,
+-    .max_cpus = 4,
++    .max_cpus = 8,
+ };
+ 
+ static void machvirt_machine_init(void)
+-- 
+1.8.3.1
+

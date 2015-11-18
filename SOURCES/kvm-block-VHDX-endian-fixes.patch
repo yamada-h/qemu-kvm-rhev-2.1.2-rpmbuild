@@ -1,0 +1,472 @@
+From f4594c751d050c2a52fca14148d332317c5555f1 Mon Sep 17 00:00:00 2001
+From: Jeffrey Cody <jcody@redhat.com>
+Date: Tue, 19 Aug 2014 18:16:48 +0200
+Subject: [PATCH 03/15] block: VHDX endian fixes
+
+Message-id: <eb38a45bf198ba6117fed34d2058430ec8fb0ebf.1408471833.git.jcody@redhat.com>
+Patchwork-id: 60630
+O-Subject: [PATCH qemu-kvm-rhev RHEV7.1 2/2] block: VHDX endian fixes
+Bugzilla: 1126976
+RH-Acked-by: dgibson <dgibson@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+
+This patch contains several changes for endian conversion fixes for
+VHDX, particularly for big-endian machines (multibyte values in VHDX are
+all on disk in LE format).
+
+Tests were done with existing qemu-iotests on an IBM POWER7 (8406-71Y).
+This includes sample images created by Hyper-V, both with dirty logs and
+without.
+
+In addition, VHDX image files created (and written to) on a BE machine
+were tested on a LE machine, and vice-versa.
+
+Reported-by: Markus Armburster <armbru@redhat.com>
+Reported-by: Paolo Bonzini <pbonzini@redhat.com>
+Signed-off-by: Jeff Cody <jcody@redhat.com>
+Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
+Signed-off-by: Kevin Wolf <kwolf@redhat.com>
+(cherry picked from commit 4f75b52a07e0a0e71c1c81d0cb0ddf9c52c8e1bc)
+---
+ block/vhdx-endian.c | 11 +++++--
+ block/vhdx-log.c    | 43 +++++++++++++++-----------
+ block/vhdx.c        | 89 +++++++++++++++++++++++++++++++----------------------
+ block/vhdx.h        |  1 +
+ 4 files changed, 88 insertions(+), 56 deletions(-)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ block/vhdx-endian.c |   11 +++++-
+ block/vhdx-log.c    |   43 ++++++++++++++----------
+ block/vhdx.c        |   89 ++++++++++++++++++++++++++++++--------------------
+ block/vhdx.h        |    1 +
+ 4 files changed, 88 insertions(+), 56 deletions(-)
+
+diff --git a/block/vhdx-endian.c b/block/vhdx-endian.c
+index fe879ed..0640d3f 100644
+--- a/block/vhdx-endian.c
++++ b/block/vhdx-endian.c
+@@ -82,8 +82,6 @@ void vhdx_log_desc_le_import(VHDXLogDescriptor *d)
+     assert(d != NULL);
+ 
+     le32_to_cpus(&d->signature);
+-    le32_to_cpus(&d->trailing_bytes);
+-    le64_to_cpus(&d->leading_bytes);
+     le64_to_cpus(&d->file_offset);
+     le64_to_cpus(&d->sequence_number);
+ }
+@@ -99,6 +97,15 @@ void vhdx_log_desc_le_export(VHDXLogDescriptor *d)
+     cpu_to_le64s(&d->sequence_number);
+ }
+ 
++void vhdx_log_data_le_import(VHDXLogDataSector *d)
++{
++    assert(d != NULL);
++
++    le32_to_cpus(&d->data_signature);
++    le32_to_cpus(&d->sequence_high);
++    le32_to_cpus(&d->sequence_low);
++}
++
+ void vhdx_log_data_le_export(VHDXLogDataSector *d)
+ {
+     assert(d != NULL);
+diff --git a/block/vhdx-log.c b/block/vhdx-log.c
+index 7c2630d..0088be8 100644
+--- a/block/vhdx-log.c
++++ b/block/vhdx-log.c
+@@ -84,6 +84,7 @@ static int vhdx_log_peek_hdr(BlockDriverState *bs, VHDXLogEntries *log,
+     if (ret < 0) {
+         goto exit;
+     }
++    vhdx_log_entry_hdr_le_import(hdr);
+ 
+ exit:
+     return ret;
+@@ -211,7 +212,7 @@ static bool vhdx_log_hdr_is_valid(VHDXLogEntries *log, VHDXLogEntryHeader *hdr,
+ {
+     int valid = false;
+ 
+-    if (memcmp(&hdr->signature, "loge", 4)) {
++    if (hdr->signature != VHDX_LOG_SIGNATURE) {
+         goto exit;
+     }
+ 
+@@ -275,12 +276,12 @@ static bool vhdx_log_desc_is_valid(VHDXLogDescriptor *desc,
+         goto exit;
+     }
+ 
+-    if (!memcmp(&desc->signature, "zero", 4)) {
++    if (desc->signature == VHDX_LOG_ZERO_SIGNATURE) {
+         if (desc->zero_length % VHDX_LOG_SECTOR_SIZE == 0) {
+             /* valid */
+             ret = true;
+         }
+-    } else if (!memcmp(&desc->signature, "desc", 4)) {
++    } else if (desc->signature == VHDX_LOG_DESC_SIGNATURE) {
+             /* valid */
+             ret = true;
+     }
+@@ -327,13 +328,15 @@ static int vhdx_compute_desc_sectors(uint32_t desc_cnt)
+  * passed into this function. Each descriptor will also be validated,
+  * and error returned if any are invalid. */
+ static int vhdx_log_read_desc(BlockDriverState *bs, BDRVVHDXState *s,
+-                              VHDXLogEntries *log, VHDXLogDescEntries **buffer)
++                              VHDXLogEntries *log, VHDXLogDescEntries **buffer,
++                              bool convert_endian)
+ {
+     int ret = 0;
+     uint32_t desc_sectors;
+     uint32_t sectors_read;
+     VHDXLogEntryHeader hdr;
+     VHDXLogDescEntries *desc_entries = NULL;
++    VHDXLogDescriptor desc;
+     int i;
+ 
+     assert(*buffer == NULL);
+@@ -342,7 +345,7 @@ static int vhdx_log_read_desc(BlockDriverState *bs, BDRVVHDXState *s,
+     if (ret < 0) {
+         goto exit;
+     }
+-    vhdx_log_entry_hdr_le_import(&hdr);
++
+     if (vhdx_log_hdr_is_valid(log, &hdr, s) == false) {
+         ret = -EINVAL;
+         goto exit;
+@@ -363,12 +366,19 @@ static int vhdx_log_read_desc(BlockDriverState *bs, BDRVVHDXState *s,
+ 
+     /* put in proper endianness, and validate each desc */
+     for (i = 0; i < hdr.descriptor_count; i++) {
+-        vhdx_log_desc_le_import(&desc_entries->desc[i]);
+-        if (vhdx_log_desc_is_valid(&desc_entries->desc[i], &hdr) == false) {
++        desc = desc_entries->desc[i];
++        vhdx_log_desc_le_import(&desc);
++        if (convert_endian) {
++            desc_entries->desc[i] = desc;
++        }
++        if (vhdx_log_desc_is_valid(&desc, &hdr) == false) {
+             ret = -EINVAL;
+             goto free_and_exit;
+         }
+     }
++    if (convert_endian) {
++        desc_entries->hdr = hdr;
++    }
+ 
+     *buffer = desc_entries;
+     goto exit;
+@@ -403,7 +413,7 @@ static int vhdx_log_flush_desc(BlockDriverState *bs, VHDXLogDescriptor *desc,
+ 
+     buffer = qemu_blockalign(bs, VHDX_LOG_SECTOR_SIZE);
+ 
+-    if (!memcmp(&desc->signature, "desc", 4)) {
++    if (desc->signature == VHDX_LOG_DESC_SIGNATURE) {
+         /* data sector */
+         if (data == NULL) {
+             ret = -EFAULT;
+@@ -431,7 +441,7 @@ static int vhdx_log_flush_desc(BlockDriverState *bs, VHDXLogDescriptor *desc,
+ 
+         memcpy(buffer+offset, &desc->trailing_bytes, 4);
+ 
+-    } else if (!memcmp(&desc->signature, "zero", 4)) {
++    } else if (desc->signature == VHDX_LOG_ZERO_SIGNATURE) {
+         /* write 'count' sectors of sector */
+         memset(buffer, 0, VHDX_LOG_SECTOR_SIZE);
+         count = desc->zero_length / VHDX_LOG_SECTOR_SIZE;
+@@ -498,13 +508,13 @@ static int vhdx_log_flush(BlockDriverState *bs, BDRVVHDXState *s,
+             goto exit;
+         }
+ 
+-        ret = vhdx_log_read_desc(bs, s, &logs->log, &desc_entries);
++        ret = vhdx_log_read_desc(bs, s, &logs->log, &desc_entries, true);
+         if (ret < 0) {
+             goto exit;
+         }
+ 
+         for (i = 0; i < desc_entries->hdr.descriptor_count; i++) {
+-            if (!memcmp(&desc_entries->desc[i].signature, "desc", 4)) {
++            if (desc_entries->desc[i].signature == VHDX_LOG_DESC_SIGNATURE) {
+                 /* data sector, so read a sector to flush */
+                 ret = vhdx_log_read_sectors(bs, &logs->log, &sectors_read,
+                                             data, 1, false);
+@@ -515,6 +525,7 @@ static int vhdx_log_flush(BlockDriverState *bs, BDRVVHDXState *s,
+                     ret = -EINVAL;
+                     goto exit;
+                 }
++                vhdx_log_data_le_import(data);
+             }
+ 
+             ret = vhdx_log_flush_desc(bs, &desc_entries->desc[i], data);
+@@ -563,9 +574,6 @@ static int vhdx_validate_log_entry(BlockDriverState *bs, BDRVVHDXState *s,
+         goto inc_and_exit;
+     }
+ 
+-    vhdx_log_entry_hdr_le_import(&hdr);
+-
+-
+     if (vhdx_log_hdr_is_valid(log, &hdr, s) == false) {
+         goto inc_and_exit;
+     }
+@@ -578,13 +586,13 @@ static int vhdx_validate_log_entry(BlockDriverState *bs, BDRVVHDXState *s,
+ 
+     desc_sectors = vhdx_compute_desc_sectors(hdr.descriptor_count);
+ 
+-    /* Read desc sectors, and calculate log checksum */
++    /* Read all log sectors, and calculate log checksum */
+ 
+     total_sectors = hdr.entry_length / VHDX_LOG_SECTOR_SIZE;
+ 
+ 
+     /* read_desc() will increment the read idx */
+-    ret = vhdx_log_read_desc(bs, s, log, &desc_buffer);
++    ret = vhdx_log_read_desc(bs, s, log, &desc_buffer, false);
+     if (ret < 0) {
+         goto free_and_exit;
+     }
+@@ -607,7 +615,7 @@ static int vhdx_validate_log_entry(BlockDriverState *bs, BDRVVHDXState *s,
+         }
+     }
+     crc ^= 0xffffffff;
+-    if (crc != desc_buffer->hdr.checksum) {
++    if (crc != hdr.checksum) {
+         goto free_and_exit;
+     }
+ 
+@@ -967,7 +975,6 @@ static int vhdx_log_write(BlockDriverState *bs, BDRVVHDXState *s,
+      * last data sector */
+     vhdx_update_checksum(buffer, total_length,
+                          offsetof(VHDXLogEntryHeader, checksum));
+-    cpu_to_le32s((uint32_t *)(buffer + 4));
+ 
+     /* now write to the log */
+     ret = vhdx_log_write_sectors(bs, &s->log, &sectors_written, buffer,
+diff --git a/block/vhdx.c b/block/vhdx.c
+index fedcf9f..febce21 100644
+--- a/block/vhdx.c
++++ b/block/vhdx.c
+@@ -135,10 +135,8 @@ typedef struct VHDXSectorInfo {
+  * buf: buffer pointer
+  * size: size of buffer (must be > crc_offset+4)
+  *
+- * Note: The resulting checksum is in the CPU endianness, not necessarily
+- *       in the file format endianness (LE).  Any header export to disk should
+- *       make sure that vhdx_header_le_export() is used to convert to the
+- *       correct endianness
++ * Note: The buffer should have all multi-byte data in little-endian format,
++ *       and the resulting checksum is in little endian format.
+  */
+ uint32_t vhdx_update_checksum(uint8_t *buf, size_t size, int crc_offset)
+ {
+@@ -149,6 +147,7 @@ uint32_t vhdx_update_checksum(uint8_t *buf, size_t size, int crc_offset)
+ 
+     memset(buf + crc_offset, 0, sizeof(crc));
+     crc =  crc32c(0xffffffff, buf, size);
++    cpu_to_le32s(&crc);
+     memcpy(buf + crc_offset, &crc, sizeof(crc));
+ 
+     return crc;
+@@ -300,7 +299,7 @@ static int vhdx_write_header(BlockDriverState *bs_file, VHDXHeader *hdr,
+ {
+     uint8_t *buffer = NULL;
+     int ret;
+-    VHDXHeader header_le;
++    VHDXHeader *header_le;
+ 
+     assert(bs_file != NULL);
+     assert(hdr != NULL);
+@@ -321,11 +320,12 @@ static int vhdx_write_header(BlockDriverState *bs_file, VHDXHeader *hdr,
+     }
+ 
+     /* overwrite the actual VHDXHeader portion */
+-    memcpy(buffer, hdr, sizeof(VHDXHeader));
+-    hdr->checksum = vhdx_update_checksum(buffer, VHDX_HEADER_SIZE,
+-                                         offsetof(VHDXHeader, checksum));
+-    vhdx_header_le_export(hdr, &header_le);
+-    ret = bdrv_pwrite_sync(bs_file, offset, &header_le, sizeof(VHDXHeader));
++    header_le = (VHDXHeader *)buffer;
++    memcpy(header_le, hdr, sizeof(VHDXHeader));
++    vhdx_header_le_export(hdr, header_le);
++    vhdx_update_checksum(buffer, VHDX_HEADER_SIZE,
++                         offsetof(VHDXHeader, checksum));
++    ret = bdrv_pwrite_sync(bs_file, offset, header_le, sizeof(VHDXHeader));
+ 
+ exit:
+     qemu_vfree(buffer);
+@@ -432,13 +432,14 @@ static void vhdx_parse_header(BlockDriverState *bs, BDRVVHDXState *s,
+     }
+     /* copy over just the relevant portion that we need */
+     memcpy(header1, buffer, sizeof(VHDXHeader));
+-    vhdx_header_le_import(header1);
+ 
+-    if (vhdx_checksum_is_valid(buffer, VHDX_HEADER_SIZE, 4) &&
+-        !memcmp(&header1->signature, "head", 4)             &&
+-        header1->version == 1) {
+-        h1_seq = header1->sequence_number;
+-        h1_valid = true;
++    if (vhdx_checksum_is_valid(buffer, VHDX_HEADER_SIZE, 4)) {
++        vhdx_header_le_import(header1);
++        if (header1->signature == VHDX_HEADER_SIGNATURE &&
++            header1->version == 1) {
++            h1_seq = header1->sequence_number;
++            h1_valid = true;
++        }
+     }
+ 
+     ret = bdrv_pread(bs->file, VHDX_HEADER2_OFFSET, buffer, VHDX_HEADER_SIZE);
+@@ -447,13 +448,14 @@ static void vhdx_parse_header(BlockDriverState *bs, BDRVVHDXState *s,
+     }
+     /* copy over just the relevant portion that we need */
+     memcpy(header2, buffer, sizeof(VHDXHeader));
+-    vhdx_header_le_import(header2);
+ 
+-    if (vhdx_checksum_is_valid(buffer, VHDX_HEADER_SIZE, 4) &&
+-        !memcmp(&header2->signature, "head", 4)             &&
+-        header2->version == 1) {
+-        h2_seq = header2->sequence_number;
+-        h2_valid = true;
++    if (vhdx_checksum_is_valid(buffer, VHDX_HEADER_SIZE, 4)) {
++        vhdx_header_le_import(header2);
++        if (header2->signature == VHDX_HEADER_SIGNATURE &&
++            header2->version == 1) {
++            h2_seq = header2->sequence_number;
++            h2_valid = true;
++        }
+     }
+ 
+     /* If there is only 1 valid header (or no valid headers), we
+@@ -519,15 +521,21 @@ static int vhdx_open_region_tables(BlockDriverState *bs, BDRVVHDXState *s)
+         goto fail;
+     }
+     memcpy(&s->rt, buffer, sizeof(s->rt));
+-    vhdx_region_header_le_import(&s->rt);
+     offset += sizeof(s->rt);
+ 
+-    if (!vhdx_checksum_is_valid(buffer, VHDX_HEADER_BLOCK_SIZE, 4) ||
+-        memcmp(&s->rt.signature, "regi", 4)) {
++    if (!vhdx_checksum_is_valid(buffer, VHDX_HEADER_BLOCK_SIZE, 4)) {
++        ret = -EINVAL;
++        goto fail;
++    }
++
++    vhdx_region_header_le_import(&s->rt);
++
++    if (s->rt.signature != VHDX_REGION_SIGNATURE) {
+         ret = -EINVAL;
+         goto fail;
+     }
+ 
++
+     /* Per spec, maximum region table entry count is 2047 */
+     if (s->rt.entry_count > 2047) {
+         ret = -EINVAL;
+@@ -630,7 +638,7 @@ static int vhdx_parse_metadata(BlockDriverState *bs, BDRVVHDXState *s)
+ 
+     vhdx_metadata_header_le_import(&s->metadata_hdr);
+ 
+-    if (memcmp(&s->metadata_hdr.signature, "metadata", 8)) {
++    if (s->metadata_hdr.signature != VHDX_METADATA_SIGNATURE) {
+         ret = -EINVAL;
+         goto exit;
+     }
+@@ -951,7 +959,6 @@ static int vhdx_open(BlockDriverState *bs, QDict *options, int flags,
+ 
+     /* s->bat is freed in vhdx_close() */
+     s->bat = qemu_blockalign(bs, s->bat_rt.length);
+-
+     ret = bdrv_pread(bs->file, s->bat_offset, s->bat, s->bat_rt.length);
+     if (ret < 0) {
+         goto fail;
+@@ -1540,7 +1547,8 @@ exit:
+  */
+ static int vhdx_create_bat(BlockDriverState *bs, BDRVVHDXState *s,
+                            uint64_t image_size, VHDXImageType type,
+-                           bool use_zero_blocks, VHDXRegionTableEntry *rt_bat)
++                           bool use_zero_blocks, uint64_t file_offset,
++                           uint32_t length)
+ {
+     int ret = 0;
+     uint64_t data_file_offset;
+@@ -1555,7 +1563,7 @@ static int vhdx_create_bat(BlockDriverState *bs, BDRVVHDXState *s,
+     /* this gives a data start after BAT/bitmap entries, and well
+      * past any metadata entries (with a 4 MB buffer for future
+      * expansion */
+-    data_file_offset = rt_bat->file_offset + rt_bat->length + 5 * MiB;
++    data_file_offset = file_offset + length + 5 * MiB;
+     total_sectors = image_size >> s->logical_sector_size_bits;
+ 
+     if (type == VHDX_TYPE_DYNAMIC) {
+@@ -1579,7 +1587,7 @@ static int vhdx_create_bat(BlockDriverState *bs, BDRVVHDXState *s,
+                 use_zero_blocks ||
+                 bdrv_has_zero_init(bs) == 0) {
+         /* for a fixed file, the default BAT entry is not zero */
+-        s->bat = g_malloc0(rt_bat->length);
++        s->bat = g_malloc0(length);
+         block_state = type == VHDX_TYPE_FIXED ? PAYLOAD_BLOCK_FULLY_PRESENT :
+                                                 PAYLOAD_BLOCK_NOT_PRESENT;
+         block_state = use_zero_blocks ? PAYLOAD_BLOCK_ZERO : block_state;
+@@ -1594,7 +1602,7 @@ static int vhdx_create_bat(BlockDriverState *bs, BDRVVHDXState *s,
+             cpu_to_le64s(&s->bat[sinfo.bat_idx]);
+             sector_num += s->sectors_per_block;
+         }
+-        ret = bdrv_pwrite(bs, rt_bat->file_offset, s->bat, rt_bat->length);
++        ret = bdrv_pwrite(bs, file_offset, s->bat, length);
+         if (ret < 0) {
+             goto exit;
+         }
+@@ -1626,6 +1634,8 @@ static int vhdx_create_new_region_table(BlockDriverState *bs,
+     int ret = 0;
+     uint32_t offset = 0;
+     void *buffer = NULL;
++    uint64_t bat_file_offset;
++    uint32_t bat_length;
+     BDRVVHDXState *s = NULL;
+     VHDXRegionTableHeader *region_table;
+     VHDXRegionTableEntry *rt_bat;
+@@ -1674,19 +1684,26 @@ static int vhdx_create_new_region_table(BlockDriverState *bs,
+     rt_metadata->length      = 1 * MiB; /* min size, and more than enough */
+     *metadata_offset = rt_metadata->file_offset;
+ 
++    bat_file_offset = rt_bat->file_offset;
++    bat_length = rt_bat->length;
++
++    vhdx_region_header_le_export(region_table);
++    vhdx_region_entry_le_export(rt_bat);
++    vhdx_region_entry_le_export(rt_metadata);
++
+     vhdx_update_checksum(buffer, VHDX_HEADER_BLOCK_SIZE,
+                          offsetof(VHDXRegionTableHeader, checksum));
+ 
+ 
+     /* The region table gives us the data we need to create the BAT,
+      * so do that now */
+-    ret = vhdx_create_bat(bs, s, image_size, type, use_zero_blocks, rt_bat);
++    ret = vhdx_create_bat(bs, s, image_size, type, use_zero_blocks,
++                          bat_file_offset, bat_length);
++    if (ret < 0) {
++        goto exit;
++    }
+ 
+     /* Now write out the region headers to disk */
+-    vhdx_region_header_le_export(region_table);
+-    vhdx_region_entry_le_export(rt_bat);
+-    vhdx_region_entry_le_export(rt_metadata);
+-
+     ret = bdrv_pwrite(bs, VHDX_REGION_TABLE_OFFSET, buffer,
+                       VHDX_HEADER_BLOCK_SIZE);
+     if (ret < 0) {
+diff --git a/block/vhdx.h b/block/vhdx.h
+index 5370010..b4a12a0 100644
+--- a/block/vhdx.h
++++ b/block/vhdx.h
+@@ -435,6 +435,7 @@ void vhdx_header_le_import(VHDXHeader *h);
+ void vhdx_header_le_export(VHDXHeader *orig_h, VHDXHeader *new_h);
+ void vhdx_log_desc_le_import(VHDXLogDescriptor *d);
+ void vhdx_log_desc_le_export(VHDXLogDescriptor *d);
++void vhdx_log_data_le_import(VHDXLogDataSector *d);
+ void vhdx_log_data_le_export(VHDXLogDataSector *d);
+ void vhdx_log_entry_hdr_le_import(VHDXLogEntryHeader *hdr);
+ void vhdx_log_entry_hdr_le_export(VHDXLogEntryHeader *hdr);
+-- 
+1.7.1
+

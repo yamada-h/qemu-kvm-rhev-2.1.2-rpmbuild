@@ -1,0 +1,203 @@
+From e2d3e5b47c9034b18edd8518acff4fa4e7dba36c Mon Sep 17 00:00:00 2001
+From: Miroslav Rezanina <mrezanin@redhat.com>
+Date: Wed, 22 May 2013 11:59:23 +0200
+Subject: [PATCH 010/212] Disable unsupported emulated network devices
+
+Bugzilla: 921974
+
+Disable following network devices as they are not supported:
+- ne2k_isa
+- ne2k_pci
+- pcnet
+- vmxnet3
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+
+Conflicts:
+	default-configs/ppcemb-softmmu.mak
+
+Rebase note:
+- 2.0
+ Added following devices:
+ CONFIG_MACIO=y
+ CONFIG_CUDA=y
+ CONFIG_ADB=y
+ CONFIG_MAC_NVRAM=y
+ CONFIG_MAC_DBDMA=y
+ CONFIG_HEATHROW_PIC=y
+ CONFIG_GRACKLE_PCI=y
+ CONFIG_UNIN_PCI=y
+ CONFIG_DEC_PCI=y
+ CONFIG_PPCE500_PCI=y
+ CONFIG_IDE_ISA=y
+ CONFIG_IDE_CMD646=y
+ CONFIG_IDE_MACIO=y
+---
+ default-configs/i386-softmmu.mak     |    1 -
+ default-configs/mips-softmmu.mak     |    1 -
+ default-configs/mips64-softmmu.mak   |    1 -
+ default-configs/mips64el-softmmu.mak |    1 -
+ default-configs/mipsel-softmmu.mak   |    1 -
+ default-configs/pci.mak              |    4 ----
+ default-configs/ppc-softmmu.mak      |    1 -
+ default-configs/ppc64-softmmu.mak    |    1 -
+ default-configs/ppcemb-softmmu.mak   |   13 +++++++++++++
+ default-configs/sparc-softmmu.mak    |    1 -
+ default-configs/x86_64-softmmu.mak   |    1 -
+ 11 files changed, 13 insertions(+), 13 deletions(-)
+
+diff --git a/default-configs/i386-softmmu.mak b/default-configs/i386-softmmu.mak
+index 319025b..77e05e5 100644
+--- a/default-configs/i386-softmmu.mak
++++ b/default-configs/i386-softmmu.mak
+@@ -20,7 +20,6 @@ CONFIG_APM=y
+ CONFIG_I8257=y
+ CONFIG_IDE_ISA=y
+ CONFIG_IDE_PIIX=y
+-CONFIG_NE2000_ISA=y
+ CONFIG_PIIX_PCI=y
+ CONFIG_HPET=y
+ CONFIG_I8259=y
+diff --git a/default-configs/mips-softmmu.mak b/default-configs/mips-softmmu.mak
+index ac798a7..d0b89ab 100644
+--- a/default-configs/mips-softmmu.mak
++++ b/default-configs/mips-softmmu.mak
+@@ -21,7 +21,6 @@ CONFIG_I8257=y
+ CONFIG_PIIX4=y
+ CONFIG_IDE_ISA=y
+ CONFIG_IDE_PIIX=y
+-CONFIG_NE2000_ISA=y
+ CONFIG_RC4030=y
+ CONFIG_DP8393X=y
+ CONFIG_DS1225Y=y
+diff --git a/default-configs/mips64-softmmu.mak b/default-configs/mips64-softmmu.mak
+index 4afe6c0..d21eebe 100644
+--- a/default-configs/mips64-softmmu.mak
++++ b/default-configs/mips64-softmmu.mak
+@@ -21,7 +21,6 @@ CONFIG_I8257=y
+ CONFIG_PIIX4=y
+ CONFIG_IDE_ISA=y
+ CONFIG_IDE_PIIX=y
+-CONFIG_NE2000_ISA=y
+ CONFIG_RC4030=y
+ CONFIG_DP8393X=y
+ CONFIG_DS1225Y=y
+diff --git a/default-configs/mips64el-softmmu.mak b/default-configs/mips64el-softmmu.mak
+index fe907e4..df4664d 100644
+--- a/default-configs/mips64el-softmmu.mak
++++ b/default-configs/mips64el-softmmu.mak
+@@ -22,7 +22,6 @@ CONFIG_PIIX4=y
+ CONFIG_IDE_ISA=y
+ CONFIG_IDE_PIIX=y
+ CONFIG_IDE_VIA=y
+-CONFIG_NE2000_ISA=y
+ CONFIG_RC4030=y
+ CONFIG_DP8393X=y
+ CONFIG_DS1225Y=y
+diff --git a/default-configs/mipsel-softmmu.mak b/default-configs/mipsel-softmmu.mak
+index f9acb4b..2d9cece 100644
+--- a/default-configs/mipsel-softmmu.mak
++++ b/default-configs/mipsel-softmmu.mak
+@@ -21,7 +21,6 @@ CONFIG_I8257=y
+ CONFIG_PIIX4=y
+ CONFIG_IDE_ISA=y
+ CONFIG_IDE_PIIX=y
+-CONFIG_NE2000_ISA=y
+ CONFIG_RC4030=y
+ CONFIG_DP8393X=y
+ CONFIG_DS1225Y=y
+diff --git a/default-configs/pci.mak b/default-configs/pci.mak
+index 95c477f..6cc2b1b 100644
+--- a/default-configs/pci.mak
++++ b/default-configs/pci.mak
+@@ -4,15 +4,11 @@ CONFIG_VIRTIO=y
+ CONFIG_USB_UHCI=y
+ CONFIG_USB_EHCI=y
+ CONFIG_USB_XHCI=y
+-CONFIG_NE2000_PCI=y
+ CONFIG_EEPRO100_PCI=y
+-CONFIG_PCNET_PCI=y
+-CONFIG_PCNET_COMMON=y
+ CONFIG_AC97=y
+ CONFIG_HDA=y
+ CONFIG_RTL8139_PCI=y
+ CONFIG_E1000_PCI=y
+-CONFIG_VMXNET3_PCI=y
+ CONFIG_IDE_CORE=y
+ CONFIG_IDE_QDEV=y
+ CONFIG_IDE_PCI=y
+diff --git a/default-configs/ppc-softmmu.mak b/default-configs/ppc-softmmu.mak
+index 33f8d84..73f46dc 100644
+--- a/default-configs/ppc-softmmu.mak
++++ b/default-configs/ppc-softmmu.mak
+@@ -33,7 +33,6 @@ CONFIG_PPCE500_PCI=y
+ CONFIG_IDE_ISA=y
+ CONFIG_IDE_CMD646=y
+ CONFIG_IDE_MACIO=y
+-CONFIG_NE2000_ISA=y
+ CONFIG_PFLASH_CFI01=y
+ CONFIG_PFLASH_CFI02=y
+ CONFIG_PTIMER=y
+diff --git a/default-configs/ppc64-softmmu.mak b/default-configs/ppc64-softmmu.mak
+index 37a15b7..a9798a8 100644
+--- a/default-configs/ppc64-softmmu.mak
++++ b/default-configs/ppc64-softmmu.mak
+@@ -33,7 +33,6 @@ CONFIG_PPCE500_PCI=y
+ CONFIG_IDE_ISA=y
+ CONFIG_IDE_CMD646=y
+ CONFIG_IDE_MACIO=y
+-CONFIG_NE2000_ISA=y
+ CONFIG_PFLASH_CFI01=y
+ CONFIG_PFLASH_CFI02=y
+ CONFIG_PTIMER=y
+diff --git a/default-configs/ppcemb-softmmu.mak b/default-configs/ppcemb-softmmu.mak
+index e032761..aa2bdb1 100644
+--- a/default-configs/ppcemb-softmmu.mak
++++ b/default-configs/ppcemb-softmmu.mak
+@@ -9,6 +9,19 @@ CONFIG_VGA_PCI=y
+ CONFIG_SERIAL=y
+ CONFIG_I8257=y
+ CONFIG_OPENPIC=y
++CONFIG_MACIO=y
++CONFIG_CUDA=y
++CONFIG_ADB=y
++CONFIG_MAC_NVRAM=y
++CONFIG_MAC_DBDMA=y
++CONFIG_HEATHROW_PIC=y
++CONFIG_GRACKLE_PCI=y
++CONFIG_UNIN_PCI=y
++CONFIG_DEC_PCI=y
++CONFIG_PPCE500_PCI=y
++CONFIG_IDE_ISA=y
++CONFIG_IDE_CMD646=y
++CONFIG_IDE_MACIO=y
+ CONFIG_PFLASH_CFI01=y
+ CONFIG_PFLASH_CFI02=y
+ CONFIG_PTIMER=y
+diff --git a/default-configs/sparc-softmmu.mak b/default-configs/sparc-softmmu.mak
+index ab796b3..775e16a 100644
+--- a/default-configs/sparc-softmmu.mak
++++ b/default-configs/sparc-softmmu.mak
+@@ -7,7 +7,6 @@ CONFIG_M48T59=y
+ CONFIG_PTIMER=y
+ CONFIG_FDC=y
+ CONFIG_EMPTY_SLOT=y
+-CONFIG_PCNET_COMMON=y
+ CONFIG_LANCE=y
+ CONFIG_TCX=y
+ CONFIG_CG3=y
+diff --git a/default-configs/x86_64-softmmu.mak b/default-configs/x86_64-softmmu.mak
+index f35a222..199bab9 100644
+--- a/default-configs/x86_64-softmmu.mak
++++ b/default-configs/x86_64-softmmu.mak
+@@ -20,7 +20,6 @@ CONFIG_APM=y
+ CONFIG_I8257=y
+ CONFIG_IDE_ISA=y
+ CONFIG_IDE_PIIX=y
+-CONFIG_NE2000_ISA=y
+ CONFIG_PIIX_PCI=y
+ CONFIG_HPET=y
+ CONFIG_I8259=y
+-- 
+1.7.1
+

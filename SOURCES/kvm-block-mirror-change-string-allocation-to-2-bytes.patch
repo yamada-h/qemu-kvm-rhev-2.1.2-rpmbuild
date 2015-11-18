@@ -1,0 +1,48 @@
+From cd9bc5feea0130390b1663fc60640083e05b8478 Mon Sep 17 00:00:00 2001
+From: Jeffrey Cody <jcody@redhat.com>
+Date: Tue, 27 Jan 2015 13:11:19 +0100
+Subject: [PATCH 3/4] block: mirror - change string allocation to 2-bytes
+
+Message-id: <ffb6c4bf1391fd44106cc2c219e6ab3e12d7565f.1422363744.git.jcody@redhat.com>
+Patchwork-id: 63576
+O-Subject: [PATCH v4 qemu-kvm-rhel RHEL7.1 3/4] block: mirror - change string allocation to 2-bytes
+Bugzilla: 1117170
+RH-Acked-by: Kevin Wolf <kwolf@redhat.com>
+RH-Acked-by: Max Reitz <mreitz@redhat.com>
+RH-Acked-by: John Snow <jsnow@redhat.com>
+
+The backing_filename string in mirror_run() is only used to check
+for a NULL string, so we don't need to allocate 1024 bytes (or, later,
+PATH_MAX bytes), when we only need to copy the first 2 characters.
+
+We technically only need 1 byte, as we are just checking for NULL, but
+since backing_filename[] is populated by bdrv_get_backing_filename(), a
+string size of 1 will always only return '\0';
+
+Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
+Reviewed-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Jeff Cody <jcody@redhat.com>
+Signed-off-by: Kevin Wolf <kwolf@redhat.com>
+(cherry picked from commit 1d33936ea847693a6d69f9049691a0341d6e0b9f)
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ block/mirror.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/block/mirror.c b/block/mirror.c
+index c7a655f..d8778bb 100644
+--- a/block/mirror.c
++++ b/block/mirror.c
+@@ -323,7 +323,8 @@ static void coroutine_fn mirror_run(void *opaque)
+     int64_t sector_num, end, sectors_per_chunk, length;
+     uint64_t last_pause_ns;
+     BlockDriverInfo bdi;
+-    char backing_filename[1024];
++    char backing_filename[2]; /* we only need 2 characters because we are only
++                                 checking for a NULL string */
+     int ret = 0;
+     int n;
+ 
+-- 
+1.8.3.1
+

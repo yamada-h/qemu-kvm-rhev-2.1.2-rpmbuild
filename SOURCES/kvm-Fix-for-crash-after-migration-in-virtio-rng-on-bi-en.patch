@@ -1,0 +1,101 @@
+From b6d0e776fa909bc88374d35788b81b334342dba5 Mon Sep 17 00:00:00 2001
+From: dgibson <dgibson@redhat.com>
+Date: Tue, 2 Dec 2014 23:31:41 +0100
+Subject: [PATCH 2/3] Fix for crash after migration in virtio-rng on bi-endian
+ targets
+
+Message-id: <1417563101-5583-1-git-send-email-dgibson@redhat.com>
+Patchwork-id: 62645
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCHv2] Fix for crash after migration in virtio-rng on bi-endian targets
+Bugzilla: 1165087
+RH-Acked-by: Fam Zheng <famz@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+
+Signed-off-by: David Gibson <dgibson@redhat.com>
+
+commit db12451decf7dfe0f083564183e135f2095228b9
+Author: David Gibson <david@gibson.dropbear.id.au>
+Date:   Thu Nov 27 16:48:10 2014 +1100
+
+    Fix for crash after migration in virtio-rng on bi-endian targets
+
+    VirtIO devices now remember which endianness they're operating in in order
+    to support targets which may have guests of either endianness, such as
+    powerpc.  This endianness state is transferred in a subsection of the
+    virtio device's information.
+
+    With virtio-rng this can lead to an abort after a loadvm hitting the
+    assert() in virtio_is_big_endian().  This can be reproduced by doing a
+    migrate and load from file on a bi-endian target with a virtio-rng device.
+    The actual guest state isn't particularly important to triggering this.
+
+    The cause is that virtio_rng_load_device() calls virtio_rng_process() which
+    accesses the ring and thus needs the endianness.  However,
+    virtio_rng_process() is called via virtio_load() before it loads the
+    subsections.  Essentially the ->load callback in VirtioDeviceClass should
+    only be used for actually reading the device state from the stream, not for
+    post-load re-initialization.
+
+    This patch fixes the bug by moving the virtio_rng_process() after the call
+    to virtio_load().  Better yet would be to convert virtio to use vmsd and
+    have the virtio_rng_process() as a post_load callback, but that's a bigger
+    project for another day.
+
+    This is bugfix, and should be considered for the 2.2 branch.
+
+    Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
+    Reviewed-by: Greg Kurz <gkurz@linux.vnet.ibm.com>
+    Message-id: 1417067290-20715-1-git-send-email-david@gibson.dropbear.id.au
+    Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+(cherry picked from commit db12451decf7dfe0f083564183e135f2095228b9)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/virtio/virtio-rng.c | 15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
+
+diff --git a/hw/virtio/virtio-rng.c b/hw/virtio/virtio-rng.c
+index 572c4ba..b6f9994 100644
+--- a/hw/virtio/virtio-rng.c
++++ b/hw/virtio/virtio-rng.c
+@@ -113,20 +113,22 @@ static void virtio_rng_save(QEMUFile *f, void *opaque)
+ 
+ static int virtio_rng_load(QEMUFile *f, void *opaque, int version_id)
+ {
++    VirtIORNG *vrng = opaque;
++    int ret;
++
+     if (version_id != 1) {
+         return -EINVAL;
+     }
+-    return virtio_load(VIRTIO_DEVICE(opaque), f, version_id);
+-}
++    ret = virtio_load(VIRTIO_DEVICE(vrng), f, version_id);
++    if (ret != 0) {
++        return ret;
++    }
+ 
+-static int virtio_rng_load_device(VirtIODevice *vdev, QEMUFile *f,
+-                                  int version_id)
+-{
+     /* We may have an element ready but couldn't process it due to a quota
+      * limit.  Make sure to try again after live migration when the quota may
+      * have been reset.
+      */
+-    virtio_rng_process(VIRTIO_RNG(vdev));
++    virtio_rng_process(vrng);
+ 
+     return 0;
+ }
+@@ -232,7 +234,6 @@ static void virtio_rng_class_init(ObjectClass *klass, void *data)
+     vdc->realize = virtio_rng_device_realize;
+     vdc->unrealize = virtio_rng_device_unrealize;
+     vdc->get_features = get_features;
+-    vdc->load = virtio_rng_load_device;
+ }
+ 
+ static void virtio_rng_initfn(Object *obj)
+-- 
+1.8.3.1
+

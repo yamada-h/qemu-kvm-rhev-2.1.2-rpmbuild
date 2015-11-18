@@ -1,0 +1,100 @@
+From a7b8d254cf8e55a814f17ba771ebd91b1b78f834 Mon Sep 17 00:00:00 2001
+From: John Snow <jsnow@redhat.com>
+Date: Fri, 14 Nov 2014 22:07:35 +0100
+Subject: [PATCH 47/48] ahci: Fix SDB FIS Construction
+
+Message-id: <1416002855-4964-21-git-send-email-jsnow@redhat.com>
+Patchwork-id: 62405
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH v2 20/20] ahci: Fix SDB FIS Construction
+Bugzilla: 1024599
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+
+The SDB FIS creation was mangled;
+We were writing the error byte to byte 0,
+and omitting the SDB FIS magic byte.
+
+Though the SDB packet layout states that:
+byte 0: Must be 0xA1 to indicate SDB FIS.
+byte 1: Port multiplier select & other flags
+byte 2: status byte.
+byte 3: error byte.
+
+This patch adds an SDB FIS structure with
+human-readable names, and ensures that we
+are filling the structure appropriately.
+
+Signed-off-by: John Snow <jsnow@redhat.com>
+Reviewed-by: Paolo Bonzini <pbonzini@redhat.com>
+Tested-by: Michael S. Tsirkin <mst@redhat.com>
+Message-id: 1412204151-18117-7-git-send-email-jsnow@redhat.com
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit 54a7f8f38ddf4711ee8bf773b5066337b045a343)
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/ide/ahci.c | 18 +++++++++---------
+ hw/ide/ahci.h |  8 ++++++++
+ 2 files changed, 17 insertions(+), 9 deletions(-)
+
+diff --git a/hw/ide/ahci.c b/hw/ide/ahci.c
+index f64f9b6..af9e3a7 100644
+--- a/hw/ide/ahci.c
++++ b/hw/ide/ahci.c
+@@ -569,24 +569,24 @@ static void ahci_write_fis_sdb(AHCIState *s, int port, uint32_t finished)
+     AHCIDevice *ad = &s->dev[port];
+     AHCIPortRegs *pr = &ad->port_regs;
+     IDEState *ide_state;
+-    uint8_t *sdb_fis;
++    SDBFIS *sdb_fis;
+ 
+     if (!s->dev[port].res_fis ||
+         !(pr->cmd & PORT_CMD_FIS_RX)) {
+         return;
+     }
+ 
+-    sdb_fis = &ad->res_fis[RES_FIS_SDBFIS];
++    sdb_fis = (SDBFIS *)&ad->res_fis[RES_FIS_SDBFIS];
+     ide_state = &ad->port.ifs[0];
+ 
+-    /* clear memory */
+-    *(uint32_t*)sdb_fis = 0;
+-
+-    /* write values */
+-    sdb_fis[0] = ide_state->error;
+-    sdb_fis[2] = ide_state->status & 0x77;
++    sdb_fis->type = 0xA1;
++    /* Interrupt pending & Notification bit */
++    sdb_fis->flags = (ad->hba->control_regs.irqstatus ? (1 << 6) : 0);
++    sdb_fis->status = ide_state->status & 0x77;
++    sdb_fis->error = ide_state->error;
++    /* update SAct field in SDB_FIS */
+     s->dev[port].finished |= finished;
+-    *(uint32_t*)(sdb_fis + 4) = cpu_to_le32(ad->finished);
++    sdb_fis->payload = cpu_to_le32(ad->finished);
+ 
+     /* Update shadow registers (except BSY 0x80 and DRQ 0x08) */
+     pr->tfdata = (ad->port.ifs[0].error << 8) |
+diff --git a/hw/ide/ahci.h b/hw/ide/ahci.h
+index e223258..db7f95a 100644
+--- a/hw/ide/ahci.h
++++ b/hw/ide/ahci.h
+@@ -327,6 +327,14 @@ typedef struct NCQFrame {
+     uint8_t reserved10;
+ } QEMU_PACKED NCQFrame;
+ 
++typedef struct SDBFIS {
++    uint8_t type;
++    uint8_t flags;
++    uint8_t status;
++    uint8_t error;
++    uint32_t payload;
++} QEMU_PACKED SDBFIS;
++
+ void ahci_init(AHCIState *s, DeviceState *qdev, AddressSpace *as, int ports);
+ void ahci_uninit(AHCIState *s);
+ 
+-- 
+1.8.3.1
+

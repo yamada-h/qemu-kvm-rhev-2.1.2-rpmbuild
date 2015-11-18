@@ -1,0 +1,46 @@
+From faa97c6a64671a27c53e25f6e7657fcbd2ab02f0 Mon Sep 17 00:00:00 2001
+From: Markus Armbruster <armbru@redhat.com>
+Date: Mon, 11 Aug 2014 07:54:45 +0200
+Subject: [PATCH 11/16] rhel: pci-serial.prog_if=0 for machine types <= 7.0
+
+Message-id: <1407743689-13553-12-git-send-email-armbru@redhat.com>
+Patchwork-id: 60512
+O-Subject: [PATCH RHEV-7.1 qemu-kvm-rhev 11/15] rhel: pci-serial.prog_if=0 for machine types <= 7.0
+Bugzilla: 1118665
+RH-Acked-by: Eduardo Habkost <ehabkost@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+
+Update RHEL compatibility properties for upstream commit 13cc2c3.
+
+pci-serial-2x and pci-serial-4x omitted, because they're unavailable
+in RHEL-7.
+
+Signed-off-by: Markus Armbruster <armbru@redhat.com>
+---
+ include/hw/i386/pc.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ include/hw/i386/pc.h |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/include/hw/i386/pc.h b/include/hw/i386/pc.h
+index 226390f..0675b71 100644
+--- a/include/hw/i386/pc.h
++++ b/include/hw/i386/pc.h
+@@ -541,6 +541,10 @@ bool e820_get_entry(int, uint32_t, uint64_t *, uint64_t *);
+             .property = "superspeed-ports-first",\
+             .value    = "off",\
+         },{\
++            .driver   = "pci-serial",\
++            .property = "prog_if",\
++            .value    = stringify(0),\
++        },{\
+             .driver   = "PIIX4_PM",\
+             .property = "acpi-pci-hotplug-with-bridge-support",\
+             .value    = "off",\
+-- 
+1.7.1
+

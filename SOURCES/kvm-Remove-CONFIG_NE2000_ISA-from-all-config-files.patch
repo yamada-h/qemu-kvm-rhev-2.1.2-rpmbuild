@@ -1,0 +1,141 @@
+From baa77102d6f89cafc9bec9e853494db581adabac Mon Sep 17 00:00:00 2001
+From: Miroslav Rezanina <mrezanin@redhat.com>
+Date: Tue, 24 Jun 2014 07:23:07 +0200
+Subject: [PATCH 188/212] Remove CONFIG_NE2000_ISA from all config files
+
+RH-Author: Miroslav Rezanina <mrezanin@redhat.com>
+Message-id: <fa425af214b072703843736ef15a71d84971f06b.1403593081.git.mrezanin@redhat.com>
+Patchwork-id: 59349
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH 1/3] Remove CONFIG_NE2000_ISA from all config files
+Bugzilla:
+
+From: Miroslav Rezanina <mrezanin@redhat.com>
+
+In commit 66d63420a139baf507b4dc95ecd2a84a2ecfa1db, NE2000 support was
+removed from the qemu package.  However, the NE2000_ISA config option
+was forgotten, which breaks the build for some targets.
+
+Signed-off-by: David Gibson <dgibson@redhat.com>
+Signed-off-by: Miroslav <mrezanin@redhat.com>
+---
+ default-configs/i386-softmmu.mak     | 1 -
+ default-configs/mips-softmmu.mak     | 1 -
+ default-configs/mips64-softmmu.mak   | 1 -
+ default-configs/mips64el-softmmu.mak | 1 -
+ default-configs/mipsel-softmmu.mak   | 1 -
+ default-configs/ppc-softmmu.mak      | 1 -
+ default-configs/ppc64-softmmu.mak    | 1 -
+ default-configs/ppcemb-softmmu.mak   | 1 -
+ 8 files changed, 8 deletions(-)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ default-configs/i386-softmmu.mak     |    1 -
+ default-configs/mips-softmmu.mak     |    1 -
+ default-configs/mips64-softmmu.mak   |    1 -
+ default-configs/mips64el-softmmu.mak |    1 -
+ default-configs/mipsel-softmmu.mak   |    1 -
+ default-configs/ppc-softmmu.mak      |    1 -
+ default-configs/ppc64-softmmu.mak    |    1 -
+ default-configs/ppcemb-softmmu.mak   |    1 -
+ 8 files changed, 0 insertions(+), 8 deletions(-)
+
+diff --git a/default-configs/i386-softmmu.mak b/default-configs/i386-softmmu.mak
+index 8e08841..f878880 100644
+--- a/default-configs/i386-softmmu.mak
++++ b/default-configs/i386-softmmu.mak
+@@ -21,7 +21,6 @@ CONFIG_APM=y
+ CONFIG_I8257=y
+ CONFIG_IDE_ISA=y
+ CONFIG_IDE_PIIX=y
+-CONFIG_NE2000_ISA=y
+ CONFIG_PIIX_PCI=y
+ CONFIG_HPET=y
+ CONFIG_APPLESMC=y
+diff --git a/default-configs/mips-softmmu.mak b/default-configs/mips-softmmu.mak
+index 71177ef..7e7aa67 100644
+--- a/default-configs/mips-softmmu.mak
++++ b/default-configs/mips-softmmu.mak
+@@ -22,7 +22,6 @@ CONFIG_I8257=y
+ CONFIG_PIIX4=y
+ CONFIG_IDE_ISA=y
+ CONFIG_IDE_PIIX=y
+-CONFIG_NE2000_ISA=y
+ CONFIG_RC4030=y
+ CONFIG_DP8393X=y
+ CONFIG_DS1225Y=y
+diff --git a/default-configs/mips64-softmmu.mak b/default-configs/mips64-softmmu.mak
+index 617301b..d1c21a5 100644
+--- a/default-configs/mips64-softmmu.mak
++++ b/default-configs/mips64-softmmu.mak
+@@ -22,7 +22,6 @@ CONFIG_I8257=y
+ CONFIG_PIIX4=y
+ CONFIG_IDE_ISA=y
+ CONFIG_IDE_PIIX=y
+-CONFIG_NE2000_ISA=y
+ CONFIG_RC4030=y
+ CONFIG_DP8393X=y
+ CONFIG_DS1225Y=y
+diff --git a/default-configs/mips64el-softmmu.mak b/default-configs/mips64el-softmmu.mak
+index 317b151..1845655 100644
+--- a/default-configs/mips64el-softmmu.mak
++++ b/default-configs/mips64el-softmmu.mak
+@@ -23,7 +23,6 @@ CONFIG_PIIX4=y
+ CONFIG_IDE_ISA=y
+ CONFIG_IDE_PIIX=y
+ CONFIG_IDE_VIA=y
+-CONFIG_NE2000_ISA=y
+ CONFIG_RC4030=y
+ CONFIG_DP8393X=y
+ CONFIG_DS1225Y=y
+diff --git a/default-configs/mipsel-softmmu.mak b/default-configs/mipsel-softmmu.mak
+index 532a9ae..8daf14f 100644
+--- a/default-configs/mipsel-softmmu.mak
++++ b/default-configs/mipsel-softmmu.mak
+@@ -22,7 +22,6 @@ CONFIG_I8257=y
+ CONFIG_PIIX4=y
+ CONFIG_IDE_ISA=y
+ CONFIG_IDE_PIIX=y
+-CONFIG_NE2000_ISA=y
+ CONFIG_RC4030=y
+ CONFIG_DP8393X=y
+ CONFIG_DS1225Y=y
+diff --git a/default-configs/ppc-softmmu.mak b/default-configs/ppc-softmmu.mak
+index 33f8d84..73f46dc 100644
+--- a/default-configs/ppc-softmmu.mak
++++ b/default-configs/ppc-softmmu.mak
+@@ -33,7 +33,6 @@ CONFIG_PPCE500_PCI=y
+ CONFIG_IDE_ISA=y
+ CONFIG_IDE_CMD646=y
+ CONFIG_IDE_MACIO=y
+-CONFIG_NE2000_ISA=y
+ CONFIG_PFLASH_CFI01=y
+ CONFIG_PFLASH_CFI02=y
+ CONFIG_PTIMER=y
+diff --git a/default-configs/ppc64-softmmu.mak b/default-configs/ppc64-softmmu.mak
+index 37a15b7..a9798a8 100644
+--- a/default-configs/ppc64-softmmu.mak
++++ b/default-configs/ppc64-softmmu.mak
+@@ -33,7 +33,6 @@ CONFIG_PPCE500_PCI=y
+ CONFIG_IDE_ISA=y
+ CONFIG_IDE_CMD646=y
+ CONFIG_IDE_MACIO=y
+-CONFIG_NE2000_ISA=y
+ CONFIG_PFLASH_CFI01=y
+ CONFIG_PFLASH_CFI02=y
+ CONFIG_PTIMER=y
+diff --git a/default-configs/ppcemb-softmmu.mak b/default-configs/ppcemb-softmmu.mak
+index fb482d2..aa2bdb1 100644
+--- a/default-configs/ppcemb-softmmu.mak
++++ b/default-configs/ppcemb-softmmu.mak
+@@ -22,7 +22,6 @@ CONFIG_PPCE500_PCI=y
+ CONFIG_IDE_ISA=y
+ CONFIG_IDE_CMD646=y
+ CONFIG_IDE_MACIO=y
+-CONFIG_NE2000_ISA=y
+ CONFIG_PFLASH_CFI01=y
+ CONFIG_PFLASH_CFI02=y
+ CONFIG_PTIMER=y
+-- 
+1.7.1
+

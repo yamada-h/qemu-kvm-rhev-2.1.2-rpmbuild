@@ -1,0 +1,107 @@
+From e688d28c6877710b591d61826367382cde32d78b Mon Sep 17 00:00:00 2001
+From: Marcelo Tosatti <mtosatti@redhat.com>
+Date: Mon, 22 Sep 2014 17:05:25 +0200
+Subject: [PATCH 06/13] Introduce cpu_clean_all_dirty
+
+Message-id: <20140922170613.737037781@redhat.com>
+Patchwork-id: 61363
+O-Subject: [PATCH RHEV-7.1 qemu-kvm-rhev 1/3] Introduce cpu_clean_all_dirty
+Bugzilla: 1143054
+RH-Acked-by: Eduardo Habkost <ehabkost@redhat.com>
+RH-Acked-by: Radim Krcmar <rkrcmar@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+
+commit de9d61e83d43be9069e6646fa9d57a3f47779d28 upstream of qemu-kvm.git uq/master branch
+Author: Marcelo Tosatti <mtosatti@redhat.com>
+
+Introduce cpu_clean_all_dirty, to force subsequent cpu_synchronize_all_states
+to read in-kernel register state.
+
+Cc: qemu-stable@nongnu.org
+Signed-off-by: Marcelo Tosatti <mtosatti@redhat.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ cpus.c                | 9 +++++++++
+ include/sysemu/cpus.h | 1 +
+ include/sysemu/kvm.h  | 8 ++++++++
+ kvm-all.c             | 5 +++++
+ 4 files changed, 23 insertions(+)
+
+diff --git a/cpus.c b/cpus.c
+index 5e7f2cf..492defe 100644
+--- a/cpus.c
++++ b/cpus.c
+@@ -523,6 +523,15 @@ void cpu_synchronize_all_post_init(void)
+     }
+ }
+ 
++void cpu_clean_all_dirty(void)
++{
++    CPUState *cpu;
++
++    CPU_FOREACH(cpu) {
++        cpu_clean_state(cpu);
++    }
++}
++
+ static int do_vm_stop(RunState state)
+ {
+     int ret = 0;
+diff --git a/include/sysemu/cpus.h b/include/sysemu/cpus.h
+index 4f79081..3f162a9 100644
+--- a/include/sysemu/cpus.h
++++ b/include/sysemu/cpus.h
+@@ -10,6 +10,7 @@ void cpu_stop_current(void);
+ void cpu_synchronize_all_states(void);
+ void cpu_synchronize_all_post_reset(void);
+ void cpu_synchronize_all_post_init(void);
++void cpu_clean_all_dirty(void);
+ 
+ void qtest_clock_warp(int64_t dest);
+ 
+diff --git a/include/sysemu/kvm.h b/include/sysemu/kvm.h
+index 174ea36..777dc66 100644
+--- a/include/sysemu/kvm.h
++++ b/include/sysemu/kvm.h
+@@ -348,6 +348,7 @@ int kvm_physical_memory_addr_from_host(KVMState *s, void *ram_addr,
+ void kvm_cpu_synchronize_state(CPUState *cpu);
+ void kvm_cpu_synchronize_post_reset(CPUState *cpu);
+ void kvm_cpu_synchronize_post_init(CPUState *cpu);
++void kvm_cpu_clean_state(CPUState *cpu);
+ 
+ /* generic hooks - to be moved/refactored once there are more users */
+ 
+@@ -372,6 +373,13 @@ static inline void cpu_synchronize_post_init(CPUState *cpu)
+     }
+ }
+ 
++static inline void cpu_clean_state(CPUState *cpu)
++{
++    if (kvm_enabled()) {
++        kvm_cpu_clean_state(cpu);
++    }
++}
++
+ int kvm_irqchip_add_msi_route(KVMState *s, MSIMessage msg);
+ int kvm_irqchip_update_msi_route(KVMState *s, int virq, MSIMessage msg);
+ void kvm_irqchip_release_virq(KVMState *s, int virq);
+diff --git a/kvm-all.c b/kvm-all.c
+index 5091031..062002c 100644
+--- a/kvm-all.c
++++ b/kvm-all.c
+@@ -1684,6 +1684,11 @@ void kvm_cpu_synchronize_post_init(CPUState *cpu)
+     cpu->kvm_vcpu_dirty = false;
+ }
+ 
++void kvm_cpu_clean_state(CPUState *cpu)
++{
++    cpu->kvm_vcpu_dirty = false;
++}
++
+ int kvm_cpu_exec(CPUState *cpu)
+ {
+     struct kvm_run *run = cpu->kvm_run;
+-- 
+1.8.3.1
+

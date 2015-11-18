@@ -1,0 +1,80 @@
+From 0d5aa30b3fe342e97858feffa4477d7e99b9519a Mon Sep 17 00:00:00 2001
+From: Miroslav Rezanina <mrezanin@redhat.com>
+Date: Wed, 31 Jul 2013 08:05:46 +0200
+Subject: [PATCH 047/212] pc: Add machine type "rhel6.3.0"
+
+Message-id: <1375201922-6794-13-git-send-email-armbru@redhat.com>
+Patchwork-id: 52826
+O-Subject: [RHEL-7 PATCH v3 12/15] pc: Add machine type "rhel6.3.0"
+Bugzilla: 983991
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Bandan Das <bsd@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+
+RHEL-6's non-upstream virtio-net-pci.x-__com_redhat_rhel620_compat
+will be covered separately, if necessary (no BZ yet).
+
+Signed-off-by: Markus Armbruster <armbru@redhat.com>
+---
+ hw/i386/pc_piix.c |   25 +++++++++++++++++++++++--
+ 1 files changed, 23 insertions(+), 2 deletions(-)
+
+diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
+index 3c0f9f7..4636c5f 100644
+--- a/hw/i386/pc_piix.c
++++ b/hw/i386/pc_piix.c
+@@ -941,7 +941,7 @@ static QEMUMachine pc_machine_rhel700 = {
+     .is_default = 1,
+ };
+ 
+-#define PC_RHEL6_2_COMPAT \
++#define PC_RHEL6_3_COMPAT \
+     {\
+         .driver   = "Conroe-" TYPE_X86_CPU,\
+         .property = "model",\
+@@ -1073,13 +1073,33 @@ static QEMUMachine pc_machine_rhel700 = {
+         .value    = stringify(1),\
+     }
+ 
+-static void pc_init_rhel620(MachineState *machine)
++static void pc_init_rhel630(MachineState *machine)
+ {
+     x86_cpu_compat_disable_kvm_features(FEAT_KVM, KVM_FEATURE_PV_EOI);
+     enable_compat_apic_id_mode();
+     pc_init_rhel700(machine);
+ }
+ 
++static QEMUMachine pc_machine_rhel630 = {
++    PC_DEFAULT_MACHINE_OPTIONS,
++    .name = "rhel6.3.0",
++    .desc = "RHEL 6.3.0 PC",
++    .init = pc_init_rhel630,
++    .max_cpus = 255,
++    .compat_props = (GlobalProperty[]) {
++        PC_RHEL6_3_COMPAT,
++        { /* end of list */ }
++    },
++};
++
++#define PC_RHEL6_2_COMPAT \
++    PC_RHEL6_3_COMPAT
++
++static void pc_init_rhel620(MachineState *machine)
++{
++    pc_init_rhel630(machine);
++}
++
+ static QEMUMachine pc_machine_rhel620 = {
+     PC_DEFAULT_MACHINE_OPTIONS,
+     .name = "rhel6.2.0",
+@@ -1173,6 +1193,7 @@ static QEMUMachine pc_machine_rhel600 = {
+ static void rhel_machine_init(void)
+ {
+     qemu_register_pc_machine(&pc_machine_rhel700);
++    qemu_register_pc_machine(&pc_machine_rhel630);
+     qemu_register_pc_machine(&pc_machine_rhel620);
+     qemu_register_pc_machine(&pc_machine_rhel610);
+     qemu_register_pc_machine(&pc_machine_rhel600);
+-- 
+1.7.1
+

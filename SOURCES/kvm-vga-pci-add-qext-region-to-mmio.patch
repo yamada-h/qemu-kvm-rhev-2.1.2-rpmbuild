@@ -1,0 +1,208 @@
+From ab44d4b7f999659ad7453973de20dbb7350cd042 Mon Sep 17 00:00:00 2001
+From: dgibson <dgibson@redhat.com>
+Date: Wed, 29 Oct 2014 05:04:10 +0100
+Subject: [PATCH 12/48] vga-pci: add qext region to mmio
+
+Message-id: <1414559050-21089-12-git-send-email-dgibson@redhat.com>
+Patchwork-id: 61979
+O-Subject: [RHEL 7.1 qemu-kvm-rhev 11/11] vga-pci: add qext region to mmio
+Bugzilla: 1146809
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Gerd Hoffmann <kraxel@redhat.com>
+
+Backport notes: resolved conflicts by moving changes from upstream
+machine version compatibility macros to RHEL specific machine version
+compatibility macros.
+
+Signed-off-by: David Gibson <dgibson@redhat.com>
+
+commit b5682aa4ca790dbcce16de6dc991c72bc298019a
+Author: Gerd Hoffmann <kraxel@redhat.com>
+Date:   Tue Sep 23 12:45:56 2014 +0200
+
+    vga-pci: add qext region to mmio
+
+    Add a qemu extented register range to the standard vga mmio bar.
+    Right nowe there are two registers:  One readonly register returning the
+    size of the region (so we can easily add more registers there if needed)
+    and one endian control register, so guests (especially ppc) can flip
+    the framebuffer endianness as they need it.
+
+    Signed-off-by: Gerd Hoffmann <kraxel@redhat.com>
+    Reviewed-by: David Gibson <david@gibson.dropbear.id.au>
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+
+Conflicts:
+	include/hw/i386/pc.h
+---
+ docs/specs/standard-vga.txt |  9 ++++++
+ hw/display/vga-pci.c        | 70 +++++++++++++++++++++++++++++++++++++++++++++
+ include/hw/i386/pc.h        |  8 ++++++
+ 3 files changed, 87 insertions(+)
+
+diff --git a/docs/specs/standard-vga.txt b/docs/specs/standard-vga.txt
+index f82773e..19d2a74 100644
+--- a/docs/specs/standard-vga.txt
++++ b/docs/specs/standard-vga.txt
+@@ -70,3 +70,12 @@ Likewise applies to the pci variant only for obvious reasons.
+ 0500 - 0515 : bochs dispi interface registers, mapped flat
+               without index/data ports.  Use (index << 1)
+               as offset for (16bit) register access.
++
++0600 - 0607 : qemu extended registers.  qemu 2.2+ only.
++              The pci revision is 2 (or greater) when
++              these registers are present.  The registers
++              are 32bit.
++  0600      : qemu extended register region size, in bytes.
++  0604      : framebuffer endianness register.
++              - 0xbebebebe indicates big endian.
++              - 0x1e1e1e1e indicates little endian.
+diff --git a/hw/display/vga-pci.c b/hw/display/vga-pci.c
+index 0351d94..db922f1 100644
+--- a/hw/display/vga-pci.c
++++ b/hw/display/vga-pci.c
+@@ -35,10 +35,18 @@
+ #define PCI_VGA_IOPORT_SIZE   (0x3e0 - 0x3c0)
+ #define PCI_VGA_BOCHS_OFFSET  0x500
+ #define PCI_VGA_BOCHS_SIZE    (0x0b * 2)
++#define PCI_VGA_QEXT_OFFSET   0x600
++#define PCI_VGA_QEXT_SIZE     (2 * 4)
+ #define PCI_VGA_MMIO_SIZE     0x1000
+ 
++#define PCI_VGA_QEXT_REG_SIZE         (0 * 4)
++#define PCI_VGA_QEXT_REG_BYTEORDER    (1 * 4)
++#define  PCI_VGA_QEXT_LITTLE_ENDIAN   0x1e1e1e1e
++#define  PCI_VGA_QEXT_BIG_ENDIAN      0xbebebebe
++
+ enum vga_pci_flags {
+     PCI_VGA_FLAG_ENABLE_MMIO = 1,
++    PCI_VGA_FLAG_ENABLE_QEXT = 2,
+ };
+ 
+ typedef struct PCIVGAState {
+@@ -48,6 +56,7 @@ typedef struct PCIVGAState {
+     MemoryRegion mmio;
+     MemoryRegion ioport;
+     MemoryRegion bochs;
++    MemoryRegion qext;
+ } PCIVGAState;
+ 
+ static const VMStateDescription vmstate_vga_pci = {
+@@ -140,6 +149,46 @@ static const MemoryRegionOps pci_vga_bochs_ops = {
+     .endianness = DEVICE_LITTLE_ENDIAN,
+ };
+ 
++static uint64_t pci_vga_qext_read(void *ptr, hwaddr addr, unsigned size)
++{
++    PCIVGAState *d = ptr;
++
++    switch (addr) {
++    case PCI_VGA_QEXT_REG_SIZE:
++        return PCI_VGA_QEXT_SIZE;
++    case PCI_VGA_QEXT_REG_BYTEORDER:
++        return d->vga.big_endian_fb ?
++            PCI_VGA_QEXT_BIG_ENDIAN : PCI_VGA_QEXT_LITTLE_ENDIAN;
++    default:
++        return 0;
++    }
++}
++
++static void pci_vga_qext_write(void *ptr, hwaddr addr,
++                               uint64_t val, unsigned size)
++{
++    PCIVGAState *d = ptr;
++
++    switch (addr) {
++    case PCI_VGA_QEXT_REG_BYTEORDER:
++        if (val == PCI_VGA_QEXT_BIG_ENDIAN) {
++            d->vga.big_endian_fb = true;
++        }
++        if (val == PCI_VGA_QEXT_LITTLE_ENDIAN) {
++            d->vga.big_endian_fb = false;
++        }
++        break;
++    }
++}
++
++static const MemoryRegionOps pci_vga_qext_ops = {
++    .read = pci_vga_qext_read,
++    .write = pci_vga_qext_write,
++    .valid.min_access_size = 4,
++    .valid.max_access_size = 4,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++};
++
+ static int pci_std_vga_initfn(PCIDevice *dev)
+ {
+     PCIVGAState *d = DO_UPCAST(PCIVGAState, dev, dev);
+@@ -167,6 +216,15 @@ static int pci_std_vga_initfn(PCIDevice *dev)
+                                     &d->ioport);
+         memory_region_add_subregion(&d->mmio, PCI_VGA_BOCHS_OFFSET,
+                                     &d->bochs);
++
++        if (d->flags & (1 << PCI_VGA_FLAG_ENABLE_QEXT)) {
++            memory_region_init_io(&d->qext, NULL, &pci_vga_qext_ops, d,
++                                  "qemu extended regs", PCI_VGA_QEXT_SIZE);
++            memory_region_add_subregion(&d->mmio, PCI_VGA_QEXT_OFFSET,
++                                        &d->qext);
++            pci_set_byte(&d->dev.config[PCI_REVISION_ID], 2);
++        }
++
+         pci_register_bar(&d->dev, 2, PCI_BASE_ADDRESS_SPACE_MEMORY, &d->mmio);
+     }
+ 
+@@ -199,6 +257,14 @@ static int pci_secondary_vga_initfn(PCIDevice *dev)
+     memory_region_add_subregion(&d->mmio, PCI_VGA_BOCHS_OFFSET,
+                                 &d->bochs);
+ 
++    if (d->flags & (1 << PCI_VGA_FLAG_ENABLE_QEXT)) {
++        memory_region_init_io(&d->qext, NULL, &pci_vga_qext_ops, d,
++                              "qemu extended regs", PCI_VGA_QEXT_SIZE);
++        memory_region_add_subregion(&d->mmio, PCI_VGA_QEXT_OFFSET,
++                                    &d->qext);
++        pci_set_byte(&d->dev.config[PCI_REVISION_ID], 2);
++    }
++
+     pci_register_bar(&d->dev, 0, PCI_BASE_ADDRESS_MEM_PREFETCH, &s->vram);
+     pci_register_bar(&d->dev, 2, PCI_BASE_ADDRESS_SPACE_MEMORY, &d->mmio);
+ 
+@@ -215,11 +281,15 @@ static void pci_secondary_vga_reset(DeviceState *dev)
+ static Property vga_pci_properties[] = {
+     DEFINE_PROP_UINT32("vgamem_mb", PCIVGAState, vga.vram_size_mb, 16),
+     DEFINE_PROP_BIT("mmio", PCIVGAState, flags, PCI_VGA_FLAG_ENABLE_MMIO, true),
++    DEFINE_PROP_BIT("qemu-extended-regs",
++                    PCIVGAState, flags, PCI_VGA_FLAG_ENABLE_QEXT, true),
+     DEFINE_PROP_END_OF_LIST(),
+ };
+ 
+ static Property secondary_pci_properties[] = {
+     DEFINE_PROP_UINT32("vgamem_mb", PCIVGAState, vga.vram_size_mb, 16),
++    DEFINE_PROP_BIT("qemu-extended-regs",
++                    PCIVGAState, flags, PCI_VGA_FLAG_ENABLE_QEXT, true),
+     DEFINE_PROP_END_OF_LIST(),
+ };
+ 
+diff --git a/include/hw/i386/pc.h b/include/hw/i386/pc.h
+index 3947957..0df45e5 100644
+--- a/include/hw/i386/pc.h
++++ b/include/hw/i386/pc.h
+@@ -583,6 +583,14 @@ bool e820_get_entry(int, uint32_t, uint64_t *, uint64_t *);
+             .driver   = "virtio-net-pci", \
+             .property = "ctrl_guest_offloads", \
+             .value    = "off", \
++        },{\
++            .driver   = "VGA",\
++            .property = "qemu-extended-regs",\
++            .value    = "off",\
++        },{\
++            .driver   = "secondary-vga",\
++            .property = "qemu-extended-regs",\
++            .value    = "off",\
+         }
+ 
+ #endif
+-- 
+1.8.3.1
+

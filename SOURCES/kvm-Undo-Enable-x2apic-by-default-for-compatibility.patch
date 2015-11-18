@@ -1,0 +1,47 @@
+From 6db0e725503caac1c10902e692fbb697626fb3f2 Mon Sep 17 00:00:00 2001
+From: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+Date: Thu, 3 Jul 2014 14:15:58 +0200
+Subject: [PATCH 194/212] Undo 'Enable x2apic by default' for compatibility
+
+RH-Author: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+Message-id: <1404396958-13568-5-git-send-email-dgilbert@redhat.com>
+Patchwork-id: 59472
+O-Subject: [RHEL-7.1 qemu-kvm-rhev PATCH v5 4/4] Undo 'Enable x2apic by default' for compatibility
+Bugzilla: 1085950
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Eduardo Habkost <ehabkost@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Bandan Das <bsd@redhat.com>
+
+From: "Dr. David Alan Gilbert" <dgilbert@redhat.com>
+
+This is forced on upstream by ef02ef5f4 but disabled for older
+machine types.
+
+Signed-off-by: Dr. David Alan Gilbert <dgilbert@redhat.com>
+---
+ hw/i386/pc_piix.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/i386/pc_piix.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
+index e35a6d3..c4e1af4 100644
+--- a/hw/i386/pc_piix.c
++++ b/hw/i386/pc_piix.c
+@@ -927,6 +927,9 @@ machine_init(pc_machine_init);
+ 
+ static void pc_compat_rhel700(MachineState *machine)
+ {
++    /* Upstream enables it for everyone, we're a little more selective */
++    x86_cpu_compat_disable_kvm_features(FEAT_1_ECX, CPUID_EXT_X2APIC);
++
+     x86_cpu_compat_set_features("Conroe", FEAT_1_ECX, CPUID_EXT_X2APIC, 0);
+     x86_cpu_compat_set_features("Penryn", FEAT_1_ECX, CPUID_EXT_X2APIC, 0);
+     x86_cpu_compat_set_features("Nehalem", FEAT_1_ECX, CPUID_EXT_X2APIC, 0);
+-- 
+1.7.1
+

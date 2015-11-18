@@ -1,0 +1,42 @@
+From ad59da63c012affa839c57cd84911461c01d93b8 Mon Sep 17 00:00:00 2001
+From: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+Date: Thu, 11 Sep 2014 12:25:45 +0200
+Subject: [PATCH 15/15] rh machine types: xhci PCIe endpoint migration compatibility
+
+Message-id: <1410438345-22590-3-git-send-email-dgilbert@redhat.com>
+Patchwork-id: 61009
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH 2/2] rh machine types: xhci PCIe endpoint migration compatibility
+Bugzilla: 1138579
+RH-Acked-by: Alex Williamson <alex.williamson@redhat.com>
+RH-Acked-by: Gerd Hoffmann <kraxel@redhat.com>
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+
+From: "Dr. David Alan Gilbert" <dgilbert@redhat.com>
+
+Enable the 'xhci PCIe endpoint migration compatibility fix' for
+rhel7.0 compatibility.
+
+Signed-off-by: Dr. David Alan Gilbert <dgilbert@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ include/hw/i386/pc.h |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/include/hw/i386/pc.h b/include/hw/i386/pc.h
+index aa6ddc4..d30ff14 100644
+--- a/include/hw/i386/pc.h
++++ b/include/hw/i386/pc.h
+@@ -546,6 +546,10 @@ bool e820_get_entry(int, uint32_t, uint64_t *, uint64_t *);
+             .property = "superspeed-ports-first",\
+             .value    = "off",\
+         },{\
++            .driver   = "nec-usb-xhci",\
++            .property = "force-pcie-endcap",\
++            .value    = "on",\
++        },{\
+             .driver   = "pci-serial",\
+             .property = "prog_if",\
+             .value    = stringify(0),\
+-- 
+1.7.1
+

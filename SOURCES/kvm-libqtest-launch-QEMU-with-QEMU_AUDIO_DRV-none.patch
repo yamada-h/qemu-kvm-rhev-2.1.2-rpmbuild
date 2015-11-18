@@ -1,0 +1,48 @@
+From 576965b200b045198e5335f0d79cad3775e6a0bd Mon Sep 17 00:00:00 2001
+From: Miroslav Rezanina <mrezanin@redhat.com>
+Date: Thu, 9 Oct 2014 15:18:57 +0200
+Subject: [PATCH 3/5] libqtest: launch QEMU with QEMU_AUDIO_DRV=none
+
+Message-id: <720cfef2f667354a2e8d6e575d37e24fed3cbac6.1412867392.git.mrezanin@redhat.com>
+Patchwork-id: 61661
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCHv5 3/5] libqtest: launch QEMU with QEMU_AUDIO_DRV=none
+Bugzilla: 1108040
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+
+From: Stefan Hajnoczi <stefanha@redhat.com>
+
+No test case actually uses the audio backend.  Disable audio to prevent
+warnings on hosts with no sound hardware present:
+
+  GTESTER check-qtest-aarch64
+  sdl: SDL_OpenAudio failed
+  sdl: Reason: No available audio device
+  sdl: SDL_OpenAudio failed
+  sdl: Reason: No available audio device
+  audio: Failed to create voice `lm4549.out'
+
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Reviewed-by: Gerd Hoffmann <kraxel@redhat.com>
+(cherry picked from commit 6b029216056b8e64a6b5b7c43d1342cd4ef7ebc0)
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ tests/libqtest.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/tests/libqtest.c b/tests/libqtest.c
+index 98e8f4b..04298b5 100644
+--- a/tests/libqtest.c
++++ b/tests/libqtest.c
+@@ -165,6 +165,7 @@ QTestState *qtest_init(const char *extra_args)
+ 
+     s->qemu_pid = fork();
+     if (s->qemu_pid == 0) {
++        setenv("QEMU_AUDIO_DRV", "none", true);
+         command = g_strdup_printf("exec %s "
+                                   "-qtest unix:%s,nowait "
+                                   "-qtest-log /dev/null "
+-- 
+1.8.3.1
+

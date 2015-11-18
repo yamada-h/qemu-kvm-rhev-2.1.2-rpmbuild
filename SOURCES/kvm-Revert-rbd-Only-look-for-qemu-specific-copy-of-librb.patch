@@ -1,0 +1,38 @@
+From 3444ba53805b4326df1fe9f8c4fef8ba2512d0a0 Mon Sep 17 00:00:00 2001
+From: Kevin Wolf <kwolf@redhat.com>
+Date: Thu, 13 Nov 2014 12:13:04 +0100
+Subject: [PATCH 24/48] Revert "rbd: Only look for qemu-specific copy of
+ librbd.so.1"
+
+Message-id: <1415880786-30389-3-git-send-email-kwolf@redhat.com>
+Patchwork-id: 62363
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH 2/4] Revert "rbd: Only look for qemu-specific copy of librbd.so.1"
+Bugzilla: 1140744
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+RH-Acked-by: Max Reitz <mreitz@redhat.com>
+
+This reverts commit bde9375fac3dbdac12c5dc31255e4123ea0ba4d6.
+
+Signed-off-by: Kevin Wolf <kwolf@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ block/rbd.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/block/rbd.c b/block/rbd.c
+index 75db2e7..8fdd04d 100644
+--- a/block/rbd.c
++++ b/block/rbd.c
+@@ -1056,7 +1056,7 @@ static int qemu_rbd_load_libs(void)
+         return -1;
+     }
+ 
+-    librbd_handle = g_module_open("/usr/lib64/qemu/librbd.so.1", 0);
++    librbd_handle = g_module_open("librbd.so.1", 0);
+     if (!librbd_handle) {
+         error_report("error loading librbd: %s", g_module_error());
+         return -1;
+-- 
+1.8.3.1
+

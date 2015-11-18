@@ -1,0 +1,69 @@
+From d42b7752c6d35940f6e83a7c402338b18635079d Mon Sep 17 00:00:00 2001
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Date: Fri, 3 Oct 2014 15:37:49 +0200
+Subject: [PATCH 2/4] dataplane: fix virtio_blk_data_plane_create() op blocker
+ error path
+
+Message-id: <1412350669-29288-1-git-send-email-stefanha@redhat.com>
+Patchwork-id: 61566
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH] dataplane: fix virtio_blk_data_plane_create() op blocker error path
+Bugzilla: 1140001
+RH-Acked-by: Max Reitz <mreitz@redhat.com>
+RH-Acked-by: Fam Zheng <famz@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+
+Commit 3718d8ab65f68de2acccbe6a315907805f54e3cc ("block: Replace in_use
+with operation blocker") broke the error path because it consumed
+local_err instead of propagating it.
+
+The caller has no way to know that the function failed.  This caused
+virtio-blk to start "successfully" even though there was a fatal
+dataplane error.
+
+Steps to reproduce:
+
+  $ qemu-system-x86_64 -enable-kvm -object iothread,id=iothread0 \
+                       -drive if=none,id=drive0,file=a.img \
+  (qemu) drive_mirror drive0 /tmp/foo.img
+  (qemu) device_add virtio-blk-pci,iothread=iothread0,drive=drive0
+
+Expected result:
+
+  Since the mirror block job is using drive0 it is not possible to start
+  virtio-blk data-plane.
+
+  device_add fails and the PCI adapter is not added.
+
+Actual result:
+
+  device_add completes and the PCI adapter is added.
+
+Cc: Fam Zheng <famz@redhat.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Reviewed-by: Eric Blake <eblake@redhat.com>
+Signed-off-by: Kevin Wolf <kwolf@redhat.com>
+(cherry picked from commit 745a9bb9cdcdcc50219d14704477c5cd678c4a7e)
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/block/dataplane/virtio-blk.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/hw/block/dataplane/virtio-blk.c b/hw/block/dataplane/virtio-blk.c
+index f1c53ec..5d43631 100644
+--- a/hw/block/dataplane/virtio-blk.c
++++ b/hw/block/dataplane/virtio-blk.c
+@@ -163,8 +163,8 @@ void virtio_blk_data_plane_create(VirtIODevice *vdev, VirtIOBlkConf *blk,
+      * block jobs that can conflict.
+      */
+     if (bdrv_op_is_blocked(blk->conf.bs, BLOCK_OP_TYPE_DATAPLANE, &local_err)) {
+-        error_report("cannot start dataplane thread: %s",
+-                      error_get_pretty(local_err));
++        error_setg(errp, "cannot start dataplane thread: %s",
++                   error_get_pretty(local_err));
+         error_free(local_err);
+         return;
+     }
+-- 
+1.8.3.1
+

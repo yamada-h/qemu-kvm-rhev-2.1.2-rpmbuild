@@ -1,0 +1,77 @@
+From 93be77025cd7243432b7568b3bec4648b10f355e Mon Sep 17 00:00:00 2001
+From: Claudio Fontana <claudio.fontana@huawei.com>
+Date: Fri, 7 Nov 2014 12:59:11 -0500
+Subject: [PATCH 08/10] hw/arm/virt: mark timer in fdt as v8-compatible
+
+Message-id: <1415383153-28089-9-git-send-email-wei@redhat.com>
+Patchwork-id: 62219
+O-Subject: [RHELSA qemu-kvm-rhev PATCH 08/10] hw/arm/virt: mark timer in fdt as
+        v8-compatible
+Bugzilla: 1160325
+RH-Acked-by: Andrew Jones <drjones@redhat.com>
+
+check if the first cpu is an armv8 cpu, and if so, put
+arm,armv8-timer in the compatible string list.
+
+Note that due to this check, this patch moves the creation
+of the timer fdt node to after the cpu creation loop.
+
+Signed-off-by: Claudio Fontana <claudio.fontana@huawei.com>
+Message-id: 1411736960-24206-1-git-send-email-hw.claudio@gmail.com
+[PMM: updated to list arm,armv8-timer first]
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+
+Signed-off-by: Wei Huang <wei@redhat.com>
+---
+ hw/arm/virt.c | 15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/hw/arm/virt.c b/hw/arm/virt.c
+index 2a023b3..d91a9fb 100644
+--- a/hw/arm/virt.c
++++ b/hw/arm/virt.c
+@@ -239,14 +239,23 @@ static void fdt_add_timer_nodes(const VirtBoardInfo *vbi)
+      * but for the GIC implementation provided by both QEMU and KVM
+      * they are edge-triggered.
+      */
++    ARMCPU *armcpu;
+     uint32_t irqflags = GIC_FDT_IRQ_FLAGS_EDGE_LO_HI;
+ 
+     irqflags = deposit32(irqflags, GIC_FDT_IRQ_PPI_CPU_START,
+                          GIC_FDT_IRQ_PPI_CPU_WIDTH, (1 << vbi->smp_cpus) - 1);
+ 
+     qemu_fdt_add_subnode(vbi->fdt, "/timer");
+-    qemu_fdt_setprop_string(vbi->fdt, "/timer",
+-                                "compatible", "arm,armv7-timer");
++
++    armcpu = ARM_CPU(qemu_get_cpu(0));
++    if (arm_feature(&armcpu->env, ARM_FEATURE_V8)) {
++        const char compat[] = "arm,armv8-timer\0arm,armv7-timer";
++        qemu_fdt_setprop(vbi->fdt, "/timer", "compatible",
++                         compat, sizeof(compat));
++    } else {
++        qemu_fdt_setprop_string(vbi->fdt, "/timer", "compatible",
++                                "arm,armv7-timer");
++    }
+     qemu_fdt_setprop_cells(vbi->fdt, "/timer", "interrupts",
+                                GIC_FDT_IRQ_TYPE_PPI, 13, irqflags,
+                                GIC_FDT_IRQ_TYPE_PPI, 14, irqflags,
+@@ -553,7 +562,6 @@ static void machvirt_init(MachineState *machine)
+     }
+ 
+     create_fdt(vbi);
+-    fdt_add_timer_nodes(vbi);
+ 
+     for (n = 0; n < smp_cpus; n++) {
+         ObjectClass *oc = cpu_class_by_name(TYPE_ARM_CPU, cpu_model);
+@@ -577,6 +585,7 @@ static void machvirt_init(MachineState *machine)
+ 
+         object_property_set_bool(cpuobj, true, "realized", NULL);
+     }
++    fdt_add_timer_nodes(vbi);
+     fdt_add_cpu_nodes(vbi);
+     fdt_add_psci_node(vbi);
+ 
+-- 
+1.8.3.1
+

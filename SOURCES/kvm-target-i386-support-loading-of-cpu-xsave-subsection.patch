@@ -1,0 +1,82 @@
+From 5263dd78b20ab64194b0a47b934b8086b1f23f4f Mon Sep 17 00:00:00 2001
+From: Eduardo Habkost <ehabkost@redhat.com>
+Date: Wed, 16 Oct 2013 20:00:44 +0200
+Subject: [PATCH 099/212] target-i386: support loading of "cpu/xsave" subsection
+
+RH-Author: Eduardo Habkost <ehabkost@redhat.com>
+Message-id: <1381953644-6411-1-git-send-email-ehabkost@redhat.com>
+Patchwork-id: 54966
+O-Subject: [qemu-kvm RHEL7 PATCH] target-i386: support loading of "cpu/xsave" subsection
+Bugzilla: 1004743
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Juan Quintela <quintela@redhat.com>
+RH-Acked-by: Orit Wasserman <owasserm@redhat.com>
+
+Bugzilla: 1004743
+Scratch build: http://brewweb.devel.redhat.com/brew/taskinfo?taskID=6429524
+Upstream status: not applicable
+  (We could try to make upstream accept the subsection, but I don't
+  think it will be accepted because there's no real benefit)
+
+This is a kind of forward-port of RHEL-6 commits ceee3a15c8 and 7f468b80fd, so
+the "cpu/xsave" subsection can be loaded when migrating from RHEL-6.
+
+The differences between the RHEL-6 patches and this one are:
+ * The xsave state is not being removed from the main "cpu" section,
+   so we keep using the same format/version used upstream
+ * The subsection is always reported as optional, because the xsave
+   state is kept in the main "cpu" section
+
+Signed-off-by: Eduardo Habkost <ehabkost@redhat.com>
+---
+ target-i386/machine.c | 24 +++++++++++++++++++++++-
+ 1 file changed, 23 insertions(+), 1 deletion(-)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ target-i386/machine.c |   22 ++++++++++++++++++++++
+ 1 files changed, 22 insertions(+), 0 deletions(-)
+
+diff --git a/target-i386/machine.c b/target-i386/machine.c
+index 16d2f6a..ac45d81 100644
+--- a/target-i386/machine.c
++++ b/target-i386/machine.c
+@@ -603,6 +603,25 @@ static const VMStateDescription vmstate_msr_hyperv_time = {
+     }
+ };
+ 
++static bool vmstate_xsave_needed(void *opaque)
++{
++    /* The xsave state is already on the main "cpu" section */
++    return false;
++}
++
++static const VMStateDescription vmstate_xsave ={
++    .name = "cpu/xsave",
++    .version_id = 1,
++    .minimum_version_id = 1,
++    .minimum_version_id_old = 1,
++    .fields      = (VMStateField []) {
++    VMSTATE_UINT64_V(env.xcr0, X86CPU, 1),
++    VMSTATE_UINT64_V(env.xstate_bv, X86CPU, 1),
++    VMSTATE_YMMH_REGS_VARS(env.ymmh_regs, X86CPU, CPU_NB_REGS, 1),
++    VMSTATE_END_OF_LIST()
++    }
++};
++
+ VMStateDescription vmstate_x86_cpu = {
+     .name = "cpu",
+     .version_id = 12,
+@@ -746,6 +765,9 @@ VMStateDescription vmstate_x86_cpu = {
+             .vmsd = &vmstate_msr_hyperv_time,
+             .needed = hyperv_time_enable_needed,
+         } , {
++            .vmsd = &vmstate_xsave,
++            .needed = vmstate_xsave_needed,
++        }, {
+             /* empty */
+         }
+     }
+-- 
+1.7.1
+

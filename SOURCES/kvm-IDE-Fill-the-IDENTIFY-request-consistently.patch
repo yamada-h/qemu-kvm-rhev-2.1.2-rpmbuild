@@ -1,0 +1,117 @@
+From 36dfab56baa4a5aabdb8f3a63c4bebbcff4fa681 Mon Sep 17 00:00:00 2001
+From: John Snow <jsnow@redhat.com>
+Date: Thu, 11 Sep 2014 17:10:25 +0200
+Subject: [PATCH 09/13] IDE: Fill the IDENTIFY request consistently
+
+Message-id: <1410455426-10002-2-git-send-email-jsnow@redhat.com>
+Patchwork-id: 61011
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH 1/2] IDE: Fill the IDENTIFY request consistently
+Bugzilla: 852348
+RH-Acked-by: Max Reitz <mreitz@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+
+IDE-HD, IDE-ATAPI and IDE-CFATA all fill the
+identify buffer in slightly different ways,
+this is a relatively minor patch to make them
+uniform, to emphasize that:
+
+(1) We build the s->identify_data cache first, then
+(2) We copy it to s->io_buffer to fulfill the request.
+
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit 4bf6637d35723f92e03f427c78d7ad130be41e6f)
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+
+Conflicts:
+	hw/ide/core.c
+
+Cherry-pick pulled in wwn information for IDE-ATAPI as context,
+which is a separate patch that has not been backported yet.
+
+Signed-off-by: John Snow <jsnow@redhat.com>
+---
+ hw/ide/core.c | 29 ++++++++++++++++-------------
+ 1 file changed, 16 insertions(+), 13 deletions(-)
+
+diff --git a/hw/ide/core.c b/hw/ide/core.c
+index 9eafa6a..2feacfb 100644
+--- a/hw/ide/core.c
++++ b/hw/ide/core.c
+@@ -81,13 +81,12 @@ static void ide_identify(IDEState *s)
+     unsigned int oldsize;
+     IDEDevice *dev = s->unit ? s->bus->slave : s->bus->master;
+ 
++    p = (uint16_t *)s->identify_data;
+     if (s->identify_set) {
+-	memcpy(s->io_buffer, s->identify_data, sizeof(s->identify_data));
+-	return;
++        goto fill_buffer;
+     }
++    memset(p, 0, sizeof(s->identify_data));
+ 
+-    memset(s->io_buffer, 0, 512);
+-    p = (uint16_t *)s->io_buffer;
+     put_le16(p + 0, 0x0040);
+     put_le16(p + 1, s->cylinders);
+     put_le16(p + 3, s->heads);
+@@ -180,21 +179,22 @@ static void ide_identify(IDEState *s)
+         put_le16(p + 169, 1); /* TRIM support */
+     }
+ 
+-    memcpy(s->identify_data, p, sizeof(s->identify_data));
+     s->identify_set = 1;
++
++fill_buffer:
++    memcpy(s->io_buffer, p, sizeof(s->identify_data));
+ }
+ 
+ static void ide_atapi_identify(IDEState *s)
+ {
+     uint16_t *p;
+ 
++    p = (uint16_t *)s->identify_data;
+     if (s->identify_set) {
+-	memcpy(s->io_buffer, s->identify_data, sizeof(s->identify_data));
+-	return;
++        goto fill_buffer;
+     }
++    memset(p, 0, sizeof(s->identify_data));
+ 
+-    memset(s->io_buffer, 0, 512);
+-    p = (uint16_t *)s->io_buffer;
+     /* Removable CDROM, 50us response, 12 byte packets */
+     put_le16(p + 0, (2 << 14) | (5 << 8) | (1 << 7) | (2 << 5) | (0 << 0));
+     padstr((char *)(p + 10), s->drive_serial_str, 20); /* serial number */
+@@ -233,8 +233,11 @@ static void ide_atapi_identify(IDEState *s)
+ #ifdef USE_DMA_CDROM
+     put_le16(p + 88, 0x3f | (1 << 13)); /* udma5 set and supported */
+ #endif
+-    memcpy(s->identify_data, p, sizeof(s->identify_data));
++
+     s->identify_set = 1;
++
++fill_buffer:
++    memcpy(s->io_buffer, p, sizeof(s->identify_data));
+ }
+ 
+ static void ide_cfata_identify(IDEState *s)
+@@ -242,10 +245,10 @@ static void ide_cfata_identify(IDEState *s)
+     uint16_t *p;
+     uint32_t cur_sec;
+ 
+-    p = (uint16_t *) s->identify_data;
+-    if (s->identify_set)
++    p = (uint16_t *)s->identify_data;
++    if (s->identify_set) {
+         goto fill_buffer;
+-
++    }
+     memset(p, 0, sizeof(s->identify_data));
+ 
+     cur_sec = s->cylinders * s->heads * s->sectors;
+-- 
+1.8.3.1
+

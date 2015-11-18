@@ -1,0 +1,195 @@
+From 847420149ff175eb52125ce9b554cc4a4958b9d2 Mon Sep 17 00:00:00 2001
+Message-Id: <847420149ff175eb52125ce9b554cc4a4958b9d2.1422041080.git.jen@redhat.com>
+In-Reply-To: <e9a31d3e36f51de5e70ce8ce26d344bdc21a7981.1422041080.git.jen@redhat.com>
+References: <e9a31d3e36f51de5e70ce8ce26d344bdc21a7981.1422041080.git.jen@redhat.com>
+From: Amit Shah <amit.shah@redhat.com>
+Date: Wed, 21 Jan 2015 17:23:02 -0500
+Subject: [CHANGE 3/4] ich9: add disable_s3, disable_s4, s4_val properties
+To: rhvirt-patches@redhat.com,
+    jen@redhat.com
+
+RH-Author: Amit Shah <amit.shah@redhat.com>
+Message-id: <ad9675efb688ba3c5a95957958d961182db43680.1421859772.git.amit.shah@redhat.com>
+Patchwork-id: 63451
+O-Subject: [RHEL7.1 qemu-kvm-rhev PATCH 1/2] ich9: add disable_s3, disable_s4, s4_val properties
+Bugzilla: 1170533
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Igor Mammedov <imammedo@redhat.com>
+RH-Acked-by: Marcel Apfelbaum <marcel@redhat.com>
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+
+PIIX4 has disable_s3 and disable_s4 properties to enable or disable PM
+functions.  Add such properties to the ICH9 chipset as well for the Q35
+machine type.
+
+S3 / S4 are not guaranteed to always work (needs work in the guest as
+well as QEMU for things to work properly), and disabling advertising of
+these features ensures guests don't go into zombie state if something
+isn't working right.
+
+The defaults are kept the same as in PIIX4: both S3 and S4 are enabled
+by default.
+
+These can be disabled via the cmdline:
+
+  ... -global ICH9-LPC.disable_s3=1 -global ICH9-LPC.disable_s4=1
+
+Note: some guests can fake hibernation by writing a hibernate image and
+doing a shutdown instead of S4 if S4 isn't available; there's nothing we
+can do guests to stop doing this, and this patch can't affect that
+functionality.
+
+Signed-off-by: Amit Shah <amit.shah@redhat.com>
+
+Signed-off-by: Amit Shah <amit.shah@redhat.com>
+Signed-off-by: Jeff E. Nelson <jen@redhat.com>
+---
+ hw/acpi/ich9.c         | 98 +++++++++++++++++++++++++++++++++++++++++++++++++-
+ include/hw/acpi/ich9.h |  4 +++
+ 2 files changed, 101 insertions(+), 1 deletion(-)
+
+diff --git a/hw/acpi/ich9.c b/hw/acpi/ich9.c
+index 7b14bbb..4bbb26c 100644
+--- a/hw/acpi/ich9.c
++++ b/hw/acpi/ich9.c
+@@ -228,7 +228,7 @@ void ich9_pm_init(PCIDevice *lpc_pci, ICH9LPCPMRegs *pm,
+ 
+     acpi_pm_tmr_init(&pm->acpi_regs, ich9_pm_update_sci_fn, &pm->io);
+     acpi_pm1_evt_init(&pm->acpi_regs, ich9_pm_update_sci_fn, &pm->io);
+-    acpi_pm1_cnt_init(&pm->acpi_regs, &pm->io, 2);
++    acpi_pm1_cnt_init(&pm->acpi_regs, &pm->io, pm->s4_val);
+ 
+     acpi_gpe_init(&pm->acpi_regs, ICH9_PMIO_GPE0_LEN);
+     memory_region_init_io(&pm->io_gpe, OBJECT(lpc_pci), &ich9_gpe_ops, pm,
+@@ -280,10 +280,94 @@ static void ich9_pm_set_memory_hotplug_support(Object *obj, bool value,
+     s->pm.acpi_memory_hotplug.is_enabled = value;
+ }
+ 
++static void ich9_pm_get_disable_s3(Object *obj, Visitor *v,
++                                   void *opaque, const char *name,
++                                   Error **errp)
++{
++    ICH9LPCPMRegs *pm = opaque;
++    uint8_t value = pm->disable_s3;
++
++    visit_type_uint8(v, &value, name, errp);
++}
++
++static void ich9_pm_set_disable_s3(Object *obj, Visitor *v,
++                                   void *opaque, const char *name,
++                                   Error **errp)
++{
++    ICH9LPCPMRegs *pm = opaque;
++    Error *local_err = NULL;
++    uint8_t value;
++
++    visit_type_uint8(v, &value, name, &local_err);
++    if (local_err) {
++        goto out;
++    }
++    pm->disable_s3 = value;
++out:
++    error_propagate(errp, local_err);
++}
++
++static void ich9_pm_get_disable_s4(Object *obj, Visitor *v,
++                                   void *opaque, const char *name,
++                                   Error **errp)
++{
++    ICH9LPCPMRegs *pm = opaque;
++    uint8_t value = pm->disable_s4;
++
++    visit_type_uint8(v, &value, name, errp);
++}
++
++static void ich9_pm_set_disable_s4(Object *obj, Visitor *v,
++                                   void *opaque, const char *name,
++                                   Error **errp)
++{
++    ICH9LPCPMRegs *pm = opaque;
++    Error *local_err = NULL;
++    uint8_t value;
++
++    visit_type_uint8(v, &value, name, &local_err);
++    if (local_err) {
++        goto out;
++    }
++    pm->disable_s4 = value;
++out:
++    error_propagate(errp, local_err);
++}
++
++static void ich9_pm_get_s4_val(Object *obj, Visitor *v,
++                               void *opaque, const char *name,
++                               Error **errp)
++{
++    ICH9LPCPMRegs *pm = opaque;
++    uint8_t value = pm->s4_val;
++
++    visit_type_uint8(v, &value, name, errp);
++}
++
++static void ich9_pm_set_s4_val(Object *obj, Visitor *v,
++                               void *opaque, const char *name,
++                               Error **errp)
++{
++    ICH9LPCPMRegs *pm = opaque;
++    Error *local_err = NULL;
++    uint8_t value;
++
++    visit_type_uint8(v, &value, name, &local_err);
++    if (local_err) {
++        goto out;
++    }
++    pm->s4_val = value;
++out:
++    error_propagate(errp, local_err);
++}
++
+ void ich9_pm_add_properties(Object *obj, ICH9LPCPMRegs *pm, Error **errp)
+ {
+     static const uint32_t gpe0_len = ICH9_PMIO_GPE0_LEN;
+     pm->acpi_memory_hotplug.is_enabled = true;
++    pm->disable_s3 = 0;
++    pm->disable_s4 = 0;
++    pm->s4_val = 2;
+ 
+     object_property_add_uint32_ptr(obj, ACPI_PM_PROP_PM_IO_BASE,
+                                    &pm->pm_io_base, errp);
+@@ -296,6 +380,18 @@ void ich9_pm_add_properties(Object *obj, ICH9LPCPMRegs *pm, Error **errp)
+                              ich9_pm_get_memory_hotplug_support,
+                              ich9_pm_set_memory_hotplug_support,
+                              NULL);
++    object_property_add(obj, ACPI_PM_PROP_S3_DISABLED, "uint8",
++                        ich9_pm_get_disable_s3,
++                        ich9_pm_set_disable_s3,
++                        NULL, pm, NULL);
++    object_property_add(obj, ACPI_PM_PROP_S4_DISABLED, "uint8",
++                        ich9_pm_get_disable_s4,
++                        ich9_pm_set_disable_s4,
++                        NULL, pm, NULL);
++    object_property_add(obj, ACPI_PM_PROP_S4_VAL, "uint8",
++                        ich9_pm_get_s4_val,
++                        ich9_pm_set_s4_val,
++                        NULL, pm, NULL);
+ }
+ 
+ void ich9_pm_device_plug_cb(ICH9LPCPMRegs *pm, DeviceState *dev, Error **errp)
+diff --git a/include/hw/acpi/ich9.h b/include/hw/acpi/ich9.h
+index 7e42448..abe4e82 100644
+--- a/include/hw/acpi/ich9.h
++++ b/include/hw/acpi/ich9.h
+@@ -50,6 +50,10 @@ typedef struct ICH9LPCPMRegs {
+     Notifier cpu_added_notifier;
+ 
+     MemHotplugState acpi_memory_hotplug;
++
++    uint8_t disable_s3;
++    uint8_t disable_s4;
++    uint8_t s4_val;
+ } ICH9LPCPMRegs;
+ 
+ void ich9_pm_init(PCIDevice *lpc_pci, ICH9LPCPMRegs *pm,
+-- 
+2.1.0
+

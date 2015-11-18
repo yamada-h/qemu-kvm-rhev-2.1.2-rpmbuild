@@ -1,0 +1,136 @@
+From 318ff98f3cc9a80bc69333bad33c59c6e7823417 Mon Sep 17 00:00:00 2001
+From: John Snow <jsnow@redhat.com>
+Date: Fri, 14 Nov 2014 22:07:17 +0100
+Subject: [PATCH 29/48] ide: simplify reset callbacks
+
+Message-id: <1416002855-4964-3-git-send-email-jsnow@redhat.com>
+Patchwork-id: 62387
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH v2 02/20] ide: simplify reset callbacks
+Bugzilla: 1024599
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+
+From: Paolo Bonzini <pbonzini@redhat.com>
+
+Drop the unused return value and make the callback optional.
+
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit 1374bec0634aac9a460fe3b57bbe8b1aa7a99cb7)
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/ide/ahci.c     | 6 ------
+ hw/ide/core.c     | 5 +++--
+ hw/ide/internal.h | 3 ++-
+ hw/ide/macio.c    | 1 -
+ hw/ide/pci.c      | 4 +---
+ 5 files changed, 6 insertions(+), 13 deletions(-)
+
+diff --git a/hw/ide/ahci.c b/hw/ide/ahci.c
+index 379e77f..a0aed9a 100644
+--- a/hw/ide/ahci.c
++++ b/hw/ide/ahci.c
+@@ -1147,11 +1147,6 @@ static void ahci_dma_restart_cb(void *opaque, int running, RunState state)
+ {
+ }
+ 
+-static int ahci_dma_reset(IDEDMA *dma)
+-{
+-    return 0;
+-}
+-
+ static const IDEDMAOps ahci_dma_ops = {
+     .start_dma = ahci_start_dma,
+     .start_transfer = ahci_start_transfer,
+@@ -1162,7 +1157,6 @@ static const IDEDMAOps ahci_dma_ops = {
+     .set_inactive = ahci_dma_set_inactive,
+     .async_cmd_done = ahci_async_cmd_done,
+     .restart_cb = ahci_dma_restart_cb,
+-    .reset = ahci_dma_reset,
+ };
+ 
+ void ahci_init(AHCIState *s, DeviceState *qdev, AddressSpace *as, int ports)
+diff --git a/hw/ide/core.c b/hw/ide/core.c
+index 594ff89..8f79adb 100644
+--- a/hw/ide/core.c
++++ b/hw/ide/core.c
+@@ -2129,7 +2129,9 @@ void ide_bus_reset(IDEBus *bus)
+     }
+ 
+     /* reset dma provider too */
+-    bus->dma->ops->reset(bus->dma);
++    if (bus->dma->ops->reset) {
++        bus->dma->ops->reset(bus->dma);
++    }
+ }
+ 
+ static bool ide_cd_is_tray_open(void *opaque)
+@@ -2294,7 +2296,6 @@ static const IDEDMAOps ide_dma_nop_ops = {
+     .add_status     = ide_nop_int,
+     .set_inactive   = ide_nop,
+     .restart_cb     = ide_nop_restart,
+-    .reset          = ide_nop,
+ };
+ 
+ static IDEDMA ide_dma_nop = {
+diff --git a/hw/ide/internal.h b/hw/ide/internal.h
+index 0567a52..6cca46f 100644
+--- a/hw/ide/internal.h
++++ b/hw/ide/internal.h
+@@ -320,6 +320,7 @@ typedef enum { IDE_HD, IDE_CD, IDE_CFATA } IDEDriveKind;
+ typedef void EndTransferFunc(IDEState *);
+ 
+ typedef void DMAStartFunc(IDEDMA *, IDEState *, BlockDriverCompletionFunc *);
++typedef void DMAVoidFunc(IDEDMA *);
+ typedef int DMAFunc(IDEDMA *);
+ typedef int DMAIntFunc(IDEDMA *, int);
+ typedef void DMARestartFunc(void *, int, RunState);
+@@ -435,7 +436,7 @@ struct IDEDMAOps {
+     DMAFunc *set_inactive;
+     DMAFunc *async_cmd_done;
+     DMARestartFunc *restart_cb;
+-    DMAFunc *reset;
++    DMAVoidFunc *reset;
+ };
+ 
+ struct IDEDMA {
+diff --git a/hw/ide/macio.c b/hw/ide/macio.c
+index c14a1dd..ca39e3f 100644
+--- a/hw/ide/macio.c
++++ b/hw/ide/macio.c
+@@ -578,7 +578,6 @@ static const IDEDMAOps dbdma_ops = {
+     .add_status     = ide_nop_int,
+     .set_inactive   = ide_nop,
+     .restart_cb     = ide_nop_restart,
+-    .reset          = ide_nop,
+ };
+ 
+ static void macio_ide_realizefn(DeviceState *dev, Error **errp)
+diff --git a/hw/ide/pci.c b/hw/ide/pci.c
+index 6257a21..c24496a 100644
+--- a/hw/ide/pci.c
++++ b/hw/ide/pci.c
+@@ -247,7 +247,7 @@ static void bmdma_cancel(BMDMAState *bm)
+     }
+ }
+ 
+-static int bmdma_reset(IDEDMA *dma)
++static void bmdma_reset(IDEDMA *dma)
+ {
+     BMDMAState *bm = DO_UPCAST(BMDMAState, dma, dma);
+ 
+@@ -264,8 +264,6 @@ static int bmdma_reset(IDEDMA *dma)
+     bm->cur_prd_len = 0;
+     bm->sector_num = 0;
+     bm->nsector = 0;
+-
+-    return 0;
+ }
+ 
+ static int bmdma_start_transfer(IDEDMA *dma)
+-- 
+1.8.3.1
+

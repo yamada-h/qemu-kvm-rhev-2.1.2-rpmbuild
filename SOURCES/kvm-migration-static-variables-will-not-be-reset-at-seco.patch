@@ -1,0 +1,72 @@
+From 4a54527408876a41655e821f6acae9f16764abf3 Mon Sep 17 00:00:00 2001
+From: Amit Shah <amit.shah@redhat.com>
+Date: Fri, 21 Nov 2014 08:24:45 +0100
+Subject: [PATCH] migration: static variables will not be reset at second
+ migration
+
+Message-id: <78c3029852c4e92c6f5595a2d38a534f1fd5a7c6.1416558096.git.amit.shah@redhat.com>
+Patchwork-id: 62515
+O-Subject: [RHEL-7.1 qemu-kvm-rhev PATCH 1/1] migration: static variables will not be reset at second migration
+Bugzilla: 1166501
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+
+From: ChenLiang <chenliang88@huawei.com>
+
+The static variables in migration_bitmap_sync will not be reset in
+the case of a second attempted migration.
+
+Signed-off-by: ChenLiang <chenliang88@huawei.com>
+Signed-off-by: Gonglei <arei.gonglei@huawei.com>
+Reviewed-by: Dr. David Alan Gilbert <dgilbert@redhat.com>
+Signed-off-by: Amit Shah <amit.shah@redhat.com>
+(cherry picked from commit 6c1b663c4c3725bc4bc33f78ed266ddef80a2ca8)
+Signed-off-by: Amit Shah <amit.shah@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ arch_init.c | 15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/arch_init.c b/arch_init.c
+index 8ddaf35..b8427bc 100644
+--- a/arch_init.c
++++ b/arch_init.c
+@@ -484,15 +484,23 @@ static void migration_bitmap_sync_range(ram_addr_t start, ram_addr_t length)
+ 
+ 
+ /* Needs iothread lock! */
++/* Fix me: there are too many global variables used in migration process. */
++static int64_t start_time;
++static int64_t bytes_xfer_prev;
++static int64_t num_dirty_pages_period;
++
++static void migration_bitmap_sync_init(void)
++{
++    start_time = 0;
++    bytes_xfer_prev = 0;
++    num_dirty_pages_period = 0;
++}
+ 
+ static void migration_bitmap_sync(void)
+ {
+     RAMBlock *block;
+     uint64_t num_dirty_pages_init = migration_dirty_pages;
+     MigrationState *s = migrate_get_current();
+-    static int64_t start_time;
+-    static int64_t bytes_xfer_prev;
+-    static int64_t num_dirty_pages_period;
+     int64_t end_time;
+     int64_t bytes_xfer_now;
+     static uint64_t xbzrle_cache_miss_prev;
+@@ -772,6 +780,7 @@ static int ram_save_setup(QEMUFile *f, void *opaque)
+     mig_throttle_on = false;
+     dirty_rate_high_cnt = 0;
+     bitmap_sync_count = 0;
++    migration_bitmap_sync_init();
+ 
+     if (migrate_use_xbzrle()) {
+         XBZRLE_cache_lock();
+-- 
+1.8.3.1
+

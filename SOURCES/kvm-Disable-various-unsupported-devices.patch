@@ -1,0 +1,141 @@
+From 1bc9ed7fda2e77b6e6d7c4da9ca7ba8499185e64 Mon Sep 17 00:00:00 2001
+From: Miroslav Rezanina <mrezanin@redhat.com>
+Date: Tue, 19 Mar 2013 09:03:29 -0400
+Subject: [PATCH 008/212] Disable various unsupported devices
+
+Bugzilla: 921971
+
+Disable following emulated devices we do not support:
+- isa-applesmc
+- vmware-svga
+- ipoctal232
+- tpci200
+- ipack
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ default-configs/alpha-softmmu.mak    |    1 -
+ default-configs/i386-softmmu.mak     |    2 --
+ default-configs/mips-softmmu.mak     |    1 -
+ default-configs/mips64-softmmu.mak   |    1 -
+ default-configs/mips64el-softmmu.mak |    1 -
+ default-configs/mipsel-softmmu.mak   |    1 -
+ default-configs/pci.mak              |    1 -
+ default-configs/x86_64-softmmu.mak   |    2 --
+ 8 files changed, 0 insertions(+), 10 deletions(-)
+
+diff --git a/default-configs/alpha-softmmu.mak b/default-configs/alpha-softmmu.mak
+index bc07600..05c2f6e 100644
+--- a/default-configs/alpha-softmmu.mak
++++ b/default-configs/alpha-softmmu.mak
+@@ -10,7 +10,6 @@ CONFIG_VGA_PCI=y
+ CONFIG_VGA_CIRRUS=y
+ CONFIG_IDE_CORE=y
+ CONFIG_IDE_QDEV=y
+-CONFIG_VMWARE_VGA=y
+ CONFIG_IDE_CMD646=y
+ CONFIG_I8259=y
+ CONFIG_MC146818RTC=y
+diff --git a/default-configs/i386-softmmu.mak b/default-configs/i386-softmmu.mak
+index 8e08841..319025b 100644
+--- a/default-configs/i386-softmmu.mak
++++ b/default-configs/i386-softmmu.mak
+@@ -8,7 +8,6 @@ CONFIG_QXL=$(CONFIG_SPICE)
+ CONFIG_VGA_PCI=y
+ CONFIG_VGA_ISA=y
+ CONFIG_VGA_CIRRUS=y
+-CONFIG_VMWARE_VGA=y
+ CONFIG_VMMOUSE=y
+ CONFIG_SERIAL=y
+ CONFIG_PARALLEL=y
+@@ -24,7 +23,6 @@ CONFIG_IDE_PIIX=y
+ CONFIG_NE2000_ISA=y
+ CONFIG_PIIX_PCI=y
+ CONFIG_HPET=y
+-CONFIG_APPLESMC=y
+ CONFIG_I8259=y
+ CONFIG_PFLASH_CFI01=y
+ CONFIG_TPM_TIS=$(CONFIG_TPM)
+diff --git a/default-configs/mips-softmmu.mak b/default-configs/mips-softmmu.mak
+index 71177ef..ac798a7 100644
+--- a/default-configs/mips-softmmu.mak
++++ b/default-configs/mips-softmmu.mak
+@@ -9,7 +9,6 @@ CONFIG_VGA_PCI=y
+ CONFIG_VGA_ISA=y
+ CONFIG_VGA_ISA_MM=y
+ CONFIG_VGA_CIRRUS=y
+-CONFIG_VMWARE_VGA=y
+ CONFIG_SERIAL=y
+ CONFIG_PARALLEL=y
+ CONFIG_I8254=y
+diff --git a/default-configs/mips64-softmmu.mak b/default-configs/mips64-softmmu.mak
+index 617301b..4afe6c0 100644
+--- a/default-configs/mips64-softmmu.mak
++++ b/default-configs/mips64-softmmu.mak
+@@ -9,7 +9,6 @@ CONFIG_VGA_PCI=y
+ CONFIG_VGA_ISA=y
+ CONFIG_VGA_ISA_MM=y
+ CONFIG_VGA_CIRRUS=y
+-CONFIG_VMWARE_VGA=y
+ CONFIG_SERIAL=y
+ CONFIG_PARALLEL=y
+ CONFIG_I8254=y
+diff --git a/default-configs/mips64el-softmmu.mak b/default-configs/mips64el-softmmu.mak
+index 317b151..fe907e4 100644
+--- a/default-configs/mips64el-softmmu.mak
++++ b/default-configs/mips64el-softmmu.mak
+@@ -9,7 +9,6 @@ CONFIG_VGA_PCI=y
+ CONFIG_VGA_ISA=y
+ CONFIG_VGA_ISA_MM=y
+ CONFIG_VGA_CIRRUS=y
+-CONFIG_VMWARE_VGA=y
+ CONFIG_SERIAL=y
+ CONFIG_PARALLEL=y
+ CONFIG_I8254=y
+diff --git a/default-configs/mipsel-softmmu.mak b/default-configs/mipsel-softmmu.mak
+index 532a9ae..f9acb4b 100644
+--- a/default-configs/mipsel-softmmu.mak
++++ b/default-configs/mipsel-softmmu.mak
+@@ -9,7 +9,6 @@ CONFIG_VGA_PCI=y
+ CONFIG_VGA_ISA=y
+ CONFIG_VGA_ISA_MM=y
+ CONFIG_VGA_CIRRUS=y
+-CONFIG_VMWARE_VGA=y
+ CONFIG_SERIAL=y
+ CONFIG_PARALLEL=y
+ CONFIG_I8254=y
+diff --git a/default-configs/pci.mak b/default-configs/pci.mak
+index 5f0fcca..6d12a63 100644
+--- a/default-configs/pci.mak
++++ b/default-configs/pci.mak
+@@ -20,7 +20,6 @@ CONFIG_IDE_PCI=y
+ CONFIG_AHCI=y
+ CONFIG_SERIAL=y
+ CONFIG_SERIAL_PCI=y
+-CONFIG_IPACK=y
+ CONFIG_WDT_IB6300ESB=y
+ CONFIG_PCI_TESTDEV=y
+ CONFIG_NVME_PCI=y
+diff --git a/default-configs/x86_64-softmmu.mak b/default-configs/x86_64-softmmu.mak
+index 66557ac..f35a222 100644
+--- a/default-configs/x86_64-softmmu.mak
++++ b/default-configs/x86_64-softmmu.mak
+@@ -8,7 +8,6 @@ CONFIG_QXL=$(CONFIG_SPICE)
+ CONFIG_VGA_PCI=y
+ CONFIG_VGA_ISA=y
+ CONFIG_VGA_CIRRUS=y
+-CONFIG_VMWARE_VGA=y
+ CONFIG_VMMOUSE=y
+ CONFIG_SERIAL=y
+ CONFIG_PARALLEL=y
+@@ -24,7 +23,6 @@ CONFIG_IDE_PIIX=y
+ CONFIG_NE2000_ISA=y
+ CONFIG_PIIX_PCI=y
+ CONFIG_HPET=y
+-CONFIG_APPLESMC=y
+ CONFIG_I8259=y
+ CONFIG_PFLASH_CFI01=y
+ CONFIG_TPM_TIS=$(CONFIG_TPM)
+-- 
+1.7.1
+

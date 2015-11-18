@@ -1,0 +1,67 @@
+From 46f9fa8c1c0e0a88c6cbcdc63e4dcac54a7fb380 Mon Sep 17 00:00:00 2001
+From: Max Reitz <mreitz@redhat.com>
+Date: Mon, 24 Nov 2014 09:09:43 +0100
+Subject: [PATCH 5/6] qemu-img: clarify src_cache option documentation
+
+Message-id: <1416820184-3129-5-git-send-email-mreitz@redhat.com>
+Patchwork-id: 62548
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH 4/5] qemu-img: clarify src_cache option documentation
+Bugzilla: 1166481
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+RH-Acked-by: Kevin Wolf <kwolf@redhat.com>
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+
+From: Stefan Hajnoczi <stefanha@redhat.com>
+
+The source cache option takes the same values as the cache option.  The
+documentation reads a little strange because it starts with "In contrast
+the src_cache option ...".  The fact that this is comparing with the
+previous documented option (the 'cache' option) is implicit.  Readers
+may be confused, especially if they jump to src_cache without reading
+cache documentation first.
+
+Suggested-by: Jeff Nelson <jenelson@redhat.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Reviewed-by: Max Reitz <mreitz@redhat.com>
+(cherry picked from commit bb87fdf871d321895b8f5c481977df7a3f74a765)
+
+Signed-off-by: Max Reitz <mreitz@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ qemu-img.c    | 3 ++-
+ qemu-img.texi | 5 +++--
+ 2 files changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/qemu-img.c b/qemu-img.c
+index 22ef86a..1856fc8 100644
+--- a/qemu-img.c
++++ b/qemu-img.c
+@@ -109,7 +109,8 @@ static void QEMU_NORETURN help(void)
+            "  'cache' is the cache mode used to write the output disk image, the valid\n"
+            "    options are: 'none', 'writeback' (default, except for convert), 'writethrough',\n"
+            "    'directsync' and 'unsafe' (default for convert)\n"
+-           "  'src_cache' in contrast is the cache mode used to read input disk images\n"
++           "  'src_cache' is the cache mode used to read input disk images, the valid\n"
++           "    options are the same as for the 'cache' option\n"
+            "  'size' is the disk image size in bytes. Optional suffixes\n"
+            "    'k' or 'K' (kilobyte, 1024), 'M' (megabyte, 1024k), 'G' (gigabyte, 1024M),\n"
+            "    'T' (terabyte, 1024G), 'P' (petabyte, 1024T) and 'E' (exabyte, 1024P)  are\n"
+diff --git a/qemu-img.texi b/qemu-img.texi
+index cb68948..4380d56 100644
+--- a/qemu-img.texi
++++ b/qemu-img.texi
+@@ -73,8 +73,9 @@ specifies the cache mode that should be used with the (destination) file. See
+ the documentation of the emulator's @code{-drive cache=...} option for allowed
+ values.
+ @item -T @var{src_cache}
+-in contrast specifies the cache mode that should be used with the source
+-file(s).
++specifies the cache mode that should be used with the source file(s). See
++the documentation of the emulator's @code{-drive cache=...} option for allowed
++values.
+ @end table
+ 
+ Parameters to snapshot subcommand:
+-- 
+1.8.3.1
+

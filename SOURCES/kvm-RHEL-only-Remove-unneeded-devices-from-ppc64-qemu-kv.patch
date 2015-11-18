@@ -1,0 +1,123 @@
+From 627800acd337aeadf93a17e5daef7fbd5c858bc7 Mon Sep 17 00:00:00 2001
+From: dgibson <dgibson@redhat.com>
+Date: Mon, 8 Sep 2014 03:41:44 +0200
+Subject: [PATCH 05/14] RHEL only: Remove unneeded devices from ppc64 qemu-kvm-rhev build
+
+Message-id: <1410147705-12993-5-git-send-email-dgibson@redhat.com>
+Patchwork-id: 60894
+O-Subject: [PATCH qemu-kvm-rhev RHEV7.1 4/5] RHEL only: Remove unneeded devices from ppc64 qemu-kvm-rhev build
+Bugzilla:
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+
+This patch removes a bunch of devices we don't care about from the
+qemu-kvm-rhev build.  Specifically:
+
+ * E500 PCI (only needed for E500 machines, which we don't support)
+
+ * MacIO and related devices (only needed for emulated Macintosh
+   guests, which we don't support)
+
+ * i82379 PCI to ISA bridge (not included on x86, and no particular
+   reason to have it on ppc)
+
+ * ISA IDE controller (not included on x86 and no particular reason to
+   have it on ppc)
+
+ * CMD646 IDE controller (not included on x86 and no particular reason
+   to have it on ppc; it was standard on some Macintosh models, but we
+   don't support those)
+
+ * DEC 21154 PCI to PCI bridge (not included on x86 and no particular
+   reason to have it on ppc)
+
+ * M48T59 timer/NVRAM chip (not used on pseries which is the only
+   machine type we care about)
+
+ * OpenPIC interrupt controller (used on various historic ppc
+   machines, but not pseries)
+
+ * ISA Parallel (not included on x86, and we have even less call for
+   it on ppc)
+
+ * PowerPC 4xx embedded PCI host bridge (only used by 4xx embedded
+   boards, which we don't support)
+
+All except the last are just config changes, the last requires some
+Makefile hacking.  Ideally this would be changed to have its own
+config option, but that will need work upstream.
+
+Signed-off-by: David Gibson <dgibson@redhat.com>
+---
+ default-configs/ppc64-softmmu.mak | 20 --------------------
+ hw/ppc/Makefile.objs              |  1 -
+ 2 files changed, 21 deletions(-)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ default-configs/ppc64-softmmu.mak |   20 --------------------
+ hw/ppc/Makefile.objs              |    1 -
+ 2 files changed, 0 insertions(+), 21 deletions(-)
+
+diff --git a/default-configs/ppc64-softmmu.mak b/default-configs/ppc64-softmmu.mak
+index da6e745..01c049e 100644
+--- a/default-configs/ppc64-softmmu.mak
++++ b/default-configs/ppc64-softmmu.mak
+@@ -4,41 +4,21 @@ include pci.mak
+ include sound.mak
+ include usb.mak
+ CONFIG_ISA_MMIO=y
+-CONFIG_ESCC=y
+-CONFIG_M48T59=y
+ CONFIG_VGA=y
+ CONFIG_VGA_PCI=y
+ CONFIG_SERIAL=y
+-CONFIG_PARALLEL=y
+ CONFIG_I8254=y
+ CONFIG_PCKBD=y
+ CONFIG_FDC=y
+ CONFIG_I8257=y
+ CONFIG_I82374=y
+-CONFIG_OPENPIC=y
+-CONFIG_I82378=y
+ CONFIG_PC87312=y
+-CONFIG_MACIO=y
+ CONFIG_PCSPK=y
+-CONFIG_CUDA=y
+-CONFIG_ADB=y
+-CONFIG_MAC_NVRAM=y
+-CONFIG_MAC_DBDMA=y
+-CONFIG_HEATHROW_PIC=y
+-CONFIG_GRACKLE_PCI=y
+-CONFIG_UNIN_PCI=y
+-CONFIG_DEC_PCI=y
+-CONFIG_PPCE500_PCI=y
+-CONFIG_IDE_ISA=y
+-CONFIG_IDE_CMD646=y
+-CONFIG_IDE_MACIO=y
+ CONFIG_PFLASH_CFI01=y
+ CONFIG_PFLASH_CFI02=y
+ CONFIG_PTIMER=y
+ CONFIG_I8259=y
+-CONFIG_OPENPIC=y
+ CONFIG_PSERIES=y
+-CONFIG_OPENPIC_KVM=$(and $(CONFIG_E500),$(CONFIG_KVM))
+ # For pSeries
+ CONFIG_XICS=$(CONFIG_PSERIES)
+ CONFIG_XICS_KVM=$(and $(CONFIG_PSERIES),$(CONFIG_KVM))
+diff --git a/hw/ppc/Makefile.objs b/hw/ppc/Makefile.objs
+index 61e5316..5146136 100644
+--- a/hw/ppc/Makefile.objs
++++ b/hw/ppc/Makefile.objs
+@@ -9,7 +9,6 @@ obj-y += spapr_pci_vfio.o
+ endif
+ # PowerPC 4xx boards
+ obj-y += ppc4xx_devs.o ppc405_uc.o
+-obj-y += ppc4xx_pci.o
+ # PReP
+ obj-$(CONFIG_PREP) += prep.o
+ # OldWorld PowerMac
+-- 
+1.7.1
+

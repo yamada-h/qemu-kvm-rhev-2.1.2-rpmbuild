@@ -1,0 +1,131 @@
+From ab7df4b957dcb94bdecbffd94bfbdbc987f33ca8 Mon Sep 17 00:00:00 2001
+From: Luiz Capitulino <lcapitulino@redhat.com>
+Date: Fri, 3 Oct 2014 13:29:34 +0200
+Subject: [PATCH 12/13] block: extend BLOCK_IO_ERROR event with nospace
+ indicator
+
+Message-id: <1412342975-4060-2-git-send-email-lcapitulino@redhat.com>
+Patchwork-id: 61561
+O-Subject: [RHEV7.1 qemu-kvm-rhev PATCH 1/2] block: extend BLOCK_IO_ERROR event with nospace indicator
+Bugzilla: 1117445
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+RH-Acked-by: Eric Blake <eblake@redhat.com>
+
+Management software, such as RHEV's vdsm, want to be able to allocate
+disk space on demand. The basic use case is to start a VM with a small
+disk and then the disk is enlarged when QEMU hits a ENOSPC condition.
+
+To this end, the management software has to be notified when QEMU
+encounters ENOSPC. The solution implemented by this commit is simple:
+it extends the BLOCK_IO_ERROR with a 'nospace' key, which is true
+when QEMU is stopped due to ENOSPC.
+
+Note that support for querying this event is already present in
+query-block by means of the 'io-status' key. Also, the new 'nospace'
+BLOCK_IO_ERROR field shares the same semantics with 'io-status',
+which basically means that werror= has to be set to either
+'stop' or 'enospc' to enable 'nospace'.
+
+Finally, this commit also updates the 'io-status' key doc in the
+schema with a list of supported device models.
+
+Signed-off-by: Luiz Capitulino <lcapitulino@redhat.com>
+Reviewed-by: Eric Blake <eblake@redhat.com>
+Signed-off-by: Kevin Wolf <kwolf@redhat.com>
+(cherry picked from commit c7c2ff0c7e5d2c04fc612d74caab19b41c52c2e9)
+Signed-off-by: Luiz Capitulino <lcapitulino@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+
+Conflicts:
+	block.c
+	qapi/block-core.json
+
+RHEL-note: The conflicts are caused because of RHEL-only commits
+           b98cebf499e7 and 6b89c9171cc2.
+---
+ block.c              | 25 +++++++++++++++++--------
+ qapi/block-core.json |  8 +++++++-
+ 2 files changed, 24 insertions(+), 9 deletions(-)
+
+diff --git a/block.c b/block.c
+index f1b1cd4..ad9ada8 100644
+--- a/block.c
++++ b/block.c
+@@ -3618,6 +3618,21 @@ static void get_rhel7_error_debug_info(RHEL7BlockErrorDebugInfo *info,
+     info->message = strerror(error);
+ }
+ 
++static void send_qmp_error_event(BlockDriverState *bs,
++                                 BlockErrorAction action,
++                                 bool is_read, int error,
++                                 RHEL7BlockErrorReason res,
++                                 RHEL7BlockErrorDebugInfo *info)
++{
++    BlockErrorAction ac;
++
++    ac = is_read ? IO_OPERATION_TYPE_READ : IO_OPERATION_TYPE_WRITE;
++    qapi_event_send_block_io_error(bdrv_get_device_name(bs), ac, action,
++                                   bdrv_iostatus_is_enabled(bs),
++                                   error == ENOSPC, res, info,
++                                   &error_abort);
++}
++
+ /* This is done by device models because, while the block layer knows
+  * about the error, it does not know whether an operation comes from
+  * the device or the block layer (from a job, for example).
+@@ -3651,16 +3666,10 @@ void bdrv_error_action(BlockDriverState *bs, BlockErrorAction action,
+          * also ensures that the STOP/RESUME pair of events is emitted.
+          */
+         qemu_system_vmstop_request_prepare();
+-        qapi_event_send_block_io_error(bdrv_get_device_name(bs),
+-                                       is_read ? IO_OPERATION_TYPE_READ :
+-                                       IO_OPERATION_TYPE_WRITE,
+-                                       action, res, &info, &error_abort);
++        send_qmp_error_event(bs, action, is_read, error, res, &info);
+         qemu_system_vmstop_request(RUN_STATE_IO_ERROR);
+     } else {
+-        qapi_event_send_block_io_error(bdrv_get_device_name(bs),
+-                                       is_read ? IO_OPERATION_TYPE_READ :
+-                                       IO_OPERATION_TYPE_WRITE,
+-                                       action, res, &info, &error_abort);
++        send_qmp_error_event(bs, action, is_read, error, res, &info);
+     }
+ }
+ 
+diff --git a/qapi/block-core.json b/qapi/block-core.json
+index 706c5d9..612b3b1 100644
+--- a/qapi/block-core.json
++++ b/qapi/block-core.json
+@@ -332,6 +332,7 @@
+ #
+ # @io-status: #optional @BlockDeviceIoStatus. Only present if the device
+ #             supports it and the VM is configured to stop on errors
++#             (supported device models: virtio-blk, ide, scsi-disk)
+ #
+ # @inserted: #optional @BlockDeviceInfo describing the device if media is
+ #            present
+@@ -1551,6 +1552,11 @@
+ #
+ # @action: action that has been taken
+ #
++# @nospace: #optional true if I/O error was caused due to a no-space
++#           condition. This key is only present if query-block's
++#           io-status is present, please see query-block documentation
++#           for more information (since: 2.2)
++#
+ # @__com.redhat_reason: error reason (RHEL7 vendor extension)
+ #
+ # @__com.redhat_debug_info: debug information for humans, applications
+@@ -1564,7 +1570,7 @@
+ ##
+ { 'event': 'BLOCK_IO_ERROR',
+   'data': { 'device': 'str', 'operation': 'IoOperationType',
+-            'action': 'BlockErrorAction',
++            'action': 'BlockErrorAction', '*nospace': 'bool',
+             '__com.redhat_reason': 'RHEL7BlockErrorReason',
+             '__com.redhat_debug_info': 'RHEL7BlockErrorDebugInfo' } }
+ 
+-- 
+1.8.3.1
+

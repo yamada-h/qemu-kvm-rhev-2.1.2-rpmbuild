@@ -1,0 +1,40 @@
+From ecd8b1d442932024b7297ef87cfc29ec54110b1a Mon Sep 17 00:00:00 2001
+From: Gal Hammer <ghammer@redhat.com>
+Date: Wed, 22 Oct 2014 07:53:36 +0200
+Subject: [PATCH 5/8] serial: reset state at startup
+
+Message-id: <1413964416-11512-1-git-send-email-ghammer@redhat.com>
+Patchwork-id: 61779
+O-Subject: [PATCH RHEL-7.1 qemu-kvm-rhev] serial: reset state at startup
+Bugzilla: 1135844
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Marcel Apfelbaum <marcel.a@redhat.com>
+RH-Acked-by: Amos Kong <akong@redhat.com>
+
+From: Paolo Bonzini <pbonzini@redhat.com>
+
+When a serial port is started, its initial state is all zero.  Make
+it consistent with reset state instead.
+
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 4df7961faaa317d57e873ecdec58422d3f979336)
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/char/serial.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/hw/char/serial.c b/hw/char/serial.c
+index 764e184..4523ccb 100644
+--- a/hw/char/serial.c
++++ b/hw/char/serial.c
+@@ -668,6 +668,7 @@ void serial_realize_core(SerialState *s, Error **errp)
+                           serial_event, s);
+     fifo8_create(&s->recv_fifo, UART_FIFO_LENGTH);
+     fifo8_create(&s->xmit_fifo, UART_FIFO_LENGTH);
++    serial_reset(s);
+ }
+ 
+ void serial_exit_core(SerialState *s)
+-- 
+1.8.3.1
+

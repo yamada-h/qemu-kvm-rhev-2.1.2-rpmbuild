@@ -1,0 +1,66 @@
+From a7c58c2725578ed1cc7d8fae8b06078244682447 Mon Sep 17 00:00:00 2001
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Date: Mon, 20 Oct 2014 16:02:47 +0200
+Subject: [PATCH 09/21] trace-events: drop orphan iscsi trace events
+
+Message-id: <1413820971-23552-4-git-send-email-stefanha@redhat.com>
+Patchwork-id: 61750
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH v2 3/7] trace-events: drop orphan iscsi trace events
+Bugzilla: 1144325
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+
+iscsi_aio_write16_cb, iscsi_aio_writev, iscsi_aio_read16_cb, and
+iscsi_aio_readv have not not been in use since commit
+063c3378a9e3c25cc0afac3c72e4823d0621e352 ("block/iscsi: introduce
+bdrv_co_{readv, writev, flush_to_disk}").
+
+These were the only trace events in block/iscsi.c so drop the the
+trace.h include.
+
+Cc: Peter Lieven <pl@kamp.de>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Reviewed-by: Markus Armbruster <armbru@redhat.com>
+Message-id: 1411394595-15300-4-git-send-email-stefanha@redhat.com
+(cherry picked from commit 44e7ebb8bba5fd391b96c5011c17ae28e0a9c6ea)
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Acked-by: Laszlo Ersek <lersek@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ block/iscsi.c | 1 -
+ trace-events  | 6 ------
+ 2 files changed, 7 deletions(-)
+
+diff --git a/block/iscsi.c b/block/iscsi.c
+index ed883c3..250c605 100644
+--- a/block/iscsi.c
++++ b/block/iscsi.c
+@@ -34,7 +34,6 @@
+ #include "qemu/bitops.h"
+ #include "qemu/bitmap.h"
+ #include "block/block_int.h"
+-#include "trace.h"
+ #include "block/scsi.h"
+ #include "qemu/iov.h"
+ #include "sysemu/sysemu.h"
+diff --git a/trace-events b/trace-events
+index 1a4a081..68683f1 100644
+--- a/trace-events
++++ b/trace-events
+@@ -873,12 +873,6 @@ escc_sunkbd_event_out(int ch) "Translated keycode 0x%2.2x"
+ escc_kbd_command(int val) "Command %d"
+ escc_sunmouse_event(int dx, int dy, int buttons_state) "dx=%d dy=%d buttons=%01x"
+ 
+-# block/iscsi.c
+-iscsi_aio_write16_cb(void *iscsi, int status, void *acb, int canceled) "iscsi %p status %d acb %p canceled %d"
+-iscsi_aio_writev(void *iscsi, int64_t sector_num, int nb_sectors, void *opaque, void *acb) "iscsi %p sector_num %"PRId64" nb_sectors %d opaque %p acb %p"
+-iscsi_aio_read16_cb(void *iscsi, int status, void *acb, int canceled) "iscsi %p status %d acb %p canceled %d"
+-iscsi_aio_readv(void *iscsi, int64_t sector_num, int nb_sectors, void *opaque, void *acb) "iscsi %p sector_num %"PRId64" nb_sectors %d opaque %p acb %p"
+-
+ # hw/scsi/esp.c
+ esp_error_fifo_overrun(void) "FIFO overrun"
+ esp_error_unhandled_command(uint32_t val) "unhandled command (%2.2x)"
+-- 
+1.8.3.1
+

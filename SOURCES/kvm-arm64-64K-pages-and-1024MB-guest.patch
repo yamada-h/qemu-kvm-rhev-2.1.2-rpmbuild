@@ -1,0 +1,51 @@
+From 6351414be52a7fc4257b815bc6e95142e971b275 Mon Sep 17 00:00:00 2001
+From: Joel Schopp <joel.schopp@amd.com>
+Date: Tue, 29 Jul 2014 17:57:39 +0200
+Subject: [PATCH 211/212] arm64: 64K pages and > 1024MB guest
+
+kvm_set_phys_mem doesn't work on arm64 with memory > 1GB.  It exits with:
+kvm_set_phys_mem: error registering slot: Invalid argument
+
+An example of the failing address and size are start_addr == 0x90011000
+and size=0xaffef000.  As you can see both of these are 4K aligned, not
+64K aligned.
+
+At 1024MB or smaller qemu only makes one call to kvm_set_user_memory_region,
+so the start_addr and size are aligned by accident and the bug doesn't happen.
+
+The following patch makes things work for me on an arm64 SOC.  I also smoke
+tested the patch on an x86-64 box and qemu seemed to still run fine there
+with the patch applied.
+
+Cc: Peter Maydell <peter.maydell@linaro.org>
+Signed-off-by: Joel Schopp <joel.schopp@amd.com>
+Signed-off-by: Andrew Jones <drjones@redhat.com>
+---
+ kvm-all.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/kvm-all.c b/kvm-all.c
+index 8f9bcb8..5091031 100644
+--- a/kvm-all.c
++++ b/kvm-all.c
+@@ -618,14 +618,14 @@ static void kvm_set_phys_mem(MemoryRegionSection *section, bool add)
+ 
+     /* kvm works in page size chunks, but the function may be called
+        with sub-page size and unaligned start address. */
+-    delta = TARGET_PAGE_ALIGN(size) - size;
++    delta = HOST_PAGE_ALIGN(start_addr) - start_addr;
+     if (delta > size) {
+         return;
+     }
+     start_addr += delta;
+     size -= delta;
+-    size &= TARGET_PAGE_MASK;
+-    if (!size || (start_addr & ~TARGET_PAGE_MASK)) {
++    size &= qemu_host_page_mask;
++    if (!size || (start_addr & ~qemu_host_page_mask)) {
+         return;
+     }
+ 
+-- 
+1.7.1
+

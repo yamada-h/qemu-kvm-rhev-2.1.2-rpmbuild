@@ -1,0 +1,197 @@
+From 234daf92e9636799a551a38ecc6ddb7a77f1ffe1 Mon Sep 17 00:00:00 2001
+From: Eduardo Habkost <ehabkost@redhat.com>
+Date: Mon, 20 Jan 2014 19:05:29 +0100
+Subject: [PATCH 164/212] pc: Create pc_compat_rhel*() functions
+
+RH-Author: Eduardo Habkost <ehabkost@redhat.com>
+Message-id: <1390244730-31038-2-git-send-email-ehabkost@redhat.com>
+Patchwork-id: 56847
+O-Subject: [RHEL7 qemu-kvm PATCH 1/2] pc: Create pc_compat_rhel*() functions
+Bugzilla: 1049706
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Bandan Das <bsd@redhat.com>
+
+Bugzilla: 1049706
+Brew scratch build: http://brewweb.devel.redhat.com/brew/taskinfo?taskID=6900764
+Upstream status: not applicable
+
+This is the RHEL equivalent of upstream
+commit 396f79f45ea75bd1c421522f29b4f91d490df7cc.
+
+With the previous code, the compat code for a newer release could undo
+the compat changes made by the compat code for an older release. With
+the pc_init_*()/pc_compat_*() pattern, we can have two compat functions
+touching the same bits, as the older compat functions will run last,
+allowing it to undo changes done by newer compat functions.
+
+Signed-off-by: Eduardo Habkost <ehabkost@redhat.com>
+---
+ hw/i386/pc_piix.c | 59 ++++++++++++++++++++++++++++++++++++++++++++++---------
+ hw/i386/pc_q35.c  |  5 +++++
+ 2 files changed, 55 insertions(+), 9 deletions(-)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/i386/pc_piix.c |   60 +++++++++++++++++++++++++++++++++++++++++++++--------
+ hw/i386/pc_q35.c  |    5 ++++
+ 2 files changed, 56 insertions(+), 9 deletions(-)
+
+diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
+index 8fd7a95..9f2cf09 100644
+--- a/hw/i386/pc_piix.c
++++ b/hw/i386/pc_piix.c
+@@ -925,9 +925,15 @@ machine_init(pc_machine_init);
+ 
+ /* Red Hat Enterprise Linux machine types */
+ 
++static void pc_compat_rhel700(MachineState *machine)
++{
++}
++
+ static void pc_init_rhel700(MachineState *machine)
+ {
++    pc_compat_rhel700(machine);
+     pc_init_pci(machine);
++
+ }
+ 
+ static QEMUMachine pc_machine_rhel700 = {
+@@ -1046,8 +1052,9 @@ static QEMUMachine pc_machine_rhel700 = {
+         .value    = "rhel6-virtio.rom",\
+     }
+ 
+-static void pc_init_rhel650(MachineState *machine)
++static void pc_compat_rhel650(MachineState *machine)
+ {
++    pc_compat_rhel700(machine);
+     x86_cpu_compat_set_features("pentium", FEAT_1_EDX, 0, CPUID_APIC);
+     x86_cpu_compat_set_features("pentium2", FEAT_1_EDX, 0, CPUID_APIC);
+     x86_cpu_compat_set_features("pentium3", FEAT_1_EDX, 0, CPUID_APIC);
+@@ -1086,7 +1093,12 @@ static void pc_init_rhel650(MachineState *machine)
+                                 CPUID_EXT2_3DNOW | CPUID_EXT2_3DNOWEXT);
+ 
+     x86_cpu_compat_disable_kvm_features(FEAT_KVM, KVM_FEATURE_PV_UNHALT);
+-    pc_init_rhel700(machine);
++}
++
++static void pc_init_rhel650(MachineState *machine)
++{
++    pc_compat_rhel650(machine);
++    pc_init_pci(machine);
+ }
+ 
+ static QEMUMachine pc_machine_rhel650 = {
+@@ -1125,10 +1137,16 @@ static QEMUMachine pc_machine_rhel650 = {
+         .value    = "off",\
+     }
+ 
+-static void pc_init_rhel640(MachineState *machine)
++static void pc_compat_rhel640(MachineState *machine)
+ {
++    pc_compat_rhel650(machine);
+     x86_cpu_compat_set_features(NULL, FEAT_1_EDX, 0, CPUID_SEP);
+-    pc_init_rhel650(machine);
++}
++
++static void pc_init_rhel640(MachineState *machine)
++{
++    pc_compat_rhel640(machine);
++    pc_init_pci(machine);
+ }
+ 
+ static QEMUMachine pc_machine_rhel640 = {
+@@ -1191,13 +1209,19 @@ static QEMUMachine pc_machine_rhel640 = {
+         .value    = "1",\
+     }
+ 
+-static void pc_init_rhel630(MachineState *machine)
++static void pc_compat_rhel630(MachineState *machine)
+ {
++    pc_compat_rhel640(machine);
+     x86_cpu_compat_disable_kvm_features(FEAT_KVM, KVM_FEATURE_PV_EOI);
+     enable_compat_apic_id_mode();
+     x86_cpu_compat_set_features("SandyBridge", FEAT_1_ECX,
+                                 0, CPUID_EXT_TSC_DEADLINE_TIMER);
+-    pc_init_rhel640(machine);
++}
++
++static void pc_init_rhel630(MachineState *machine)
++{
++    pc_compat_rhel630(machine);
++    pc_init_pci(machine);
+ }
+ 
+ static QEMUMachine pc_machine_rhel630 = {
+@@ -1220,9 +1244,15 @@ static QEMUMachine pc_machine_rhel630 = {
+         .value = "off",\
+     }
+ 
++static void pc_compat_rhel620(MachineState *machine)
++{
++    pc_compat_rhel630(machine);
++}
++
+ static void pc_init_rhel620(MachineState *machine)
+ {
+-    pc_init_rhel630(machine);
++    pc_compat_rhel620(machine);
++    pc_init_pci(machine);
+ }
+ 
+ static QEMUMachine pc_machine_rhel620 = {
+@@ -1286,9 +1316,15 @@ static QEMUMachine pc_machine_rhel620 = {
+         .value    = "1",\
+     }
+ 
++static void pc_compat_rhel610(MachineState *machine)
++{
++    pc_compat_rhel620(machine);
++}
++
+ static void pc_init_rhel610(MachineState *machine)
+ {
+-    pc_init_rhel620(machine);
++    pc_compat_rhel610(machine);
++    pc_init_pci(machine);
+ }
+ 
+ static QEMUMachine pc_machine_rhel610 = {
+@@ -1319,9 +1355,15 @@ static QEMUMachine pc_machine_rhel610 = {
+         .value    = stringify(0),\
+     }
+ 
++static void pc_compat_rhel600(MachineState *machine)
++{
++    pc_compat_rhel610(machine);
++}
++
+ static void pc_init_rhel600(MachineState *machine)
+ {
+-    pc_init_rhel610(machine);
++    pc_compat_rhel600(machine);
++    pc_init_pci(machine);
+ }
+ 
+ static QEMUMachine pc_machine_rhel600 = {
+diff --git a/hw/i386/pc_q35.c b/hw/i386/pc_q35.c
+index de81dce..4290f84 100644
+--- a/hw/i386/pc_q35.c
++++ b/hw/i386/pc_q35.c
+@@ -436,8 +436,13 @@ machine_init(pc_q35_machine_init);
+ 
+ /* Red Hat Enterprise Linux machine types */
+ 
++static void pc_q35_compat_rhel700(MachineState *machine)
++{
++}
++
+ static void pc_q35_init_rhel700(MachineState *machine)
+ {
++    pc_q35_compat_rhel700(machine);
+     pc_q35_init(machine);
+ }
+ 
+-- 
+1.7.1
+

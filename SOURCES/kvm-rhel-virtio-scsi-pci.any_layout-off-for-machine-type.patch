@@ -1,0 +1,43 @@
+From aaabac23b81bf5bc90c5239888f3bbe313dcec30 Mon Sep 17 00:00:00 2001
+From: Markus Armbruster <armbru@redhat.com>
+Date: Mon, 11 Aug 2014 07:54:41 +0200
+Subject: [PATCH 07/16] rhel: virtio-scsi-pci.any_layout=off for machine types <= 7.0
+
+Message-id: <1407743689-13553-8-git-send-email-armbru@redhat.com>
+Patchwork-id: 60517
+O-Subject: [PATCH RHEV-7.1 qemu-kvm-rhev 07/15] rhel: virtio-scsi-pci.any_layout=off for machine types <= 7.0
+Bugzilla: 1118665
+RH-Acked-by: Eduardo Habkost <ehabkost@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+
+Update RHEL compatibility properties for upstream commit 3eff1f4.
+
+Signed-off-by: Markus Armbruster <armbru@redhat.com>
+---
+ include/hw/i386/pc.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ include/hw/i386/pc.h |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/include/hw/i386/pc.h b/include/hw/i386/pc.h
+index 40ef0ea..22fd0c6 100644
+--- a/include/hw/i386/pc.h
++++ b/include/hw/i386/pc.h
+@@ -525,6 +525,10 @@ bool e820_get_entry(int, uint32_t, uint64_t *, uint64_t *);
+  */
+ #define PC_RHEL7_0_COMPAT \
+         {\
++            .driver   = "virtio-scsi-pci",\
++            .property = "any_layout",\
++            .value    = "off",\
++        },{\
+             .driver   = "PIIX4_PM",\
+             .property = "acpi-pci-hotplug-with-bridge-support",\
+             .value    = "off",\
+-- 
+1.7.1
+

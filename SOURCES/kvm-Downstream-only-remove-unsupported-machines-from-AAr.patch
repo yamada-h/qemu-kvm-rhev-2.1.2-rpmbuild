@@ -1,0 +1,100 @@
+From 71b62a8fec20d02c58be30f22adf54eb29ec59d4 Mon Sep 17 00:00:00 2001
+From: "wei@redhat.com" <wei@redhat.com>
+Date: Thu, 4 Dec 2014 15:43:04 +0100
+Subject: [PATCH 3/3] Downstream only: remove unsupported machines from AArch64
+
+Message-id: <1417707784-24148-1-git-send-email-wei@redhat.com>
+Patchwork-id: 62725
+O-Subject: [RHELSA qemu-kvm-rhev PATCH 1/1] Downstream only: remove unsupported machines from AArch64
+Bugzilla: 1169847
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Andrew Jones <drjones@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+
+Bugzilla: 1169847
+Brew: https://brewweb.devel.redhat.com/taskinfo?taskID=8328461 (aarch64)
+      https://brewweb.devel.redhat.com/taskinfo?taskID=8328439 (x86_64 & ppc)
+
+Current QEMU supports many machine types for AArch64 (see below).
+Most of them are useless for RHELSA release. This patch removes
+all unsupported machine types, except machvirt.
+
+Machine types (before):
+akita                Akita PDA (PXA270)
+borzoi               Borzoi PDA (PXA270)
+canon-a1100          Canon PowerShot A1100 IS
+cheetah              Palm Tungsten|E aka. Cheetah PDA (OMAP310)
+collie               Collie PDA (SA-1110)
+connex               Gumstix Connex (PXA255)
+cubieboard           cubietech cubieboard
+highbank             Calxeda Highbank (ECX-1000)
+integratorcp         ARM Integrator/CP (ARM926EJ-S)
+kzm                  ARM KZM Emulation Baseboard (ARM1136)
+lm3s6965evb          Stellaris LM3S6965EVB
+lm3s811evb           Stellaris LM3S811EVB
+mainstone            Mainstone II (PXA27x)
+midway               Calxeda Midway (ECX-2000)
+musicpal             Marvell 88w8618 / MusicPal (ARM926EJ-S)
+n800                 Nokia N800 tablet aka. RX-34 (OMAP2420)
+n810                 Nokia N810 tablet aka. RX-44 (OMAP2420)
+none                 empty machine
+nuri                 Samsung NURI board (Exynos4210)
+smdkc210             Samsung SMDKC210 board (Exynos4210)
+spitz                Spitz PDA (PXA270)
+sx1                  Siemens SX1 (OMAP310) V2
+sx1-v1               Siemens SX1 (OMAP310) V1
+terrier              Terrier PDA (PXA270)
+tosa                 Tosa PDA (PXA255)
+verdex               Gumstix Verdex (PXA270)
+virt                 ARM Virtual Machine
+xilinx-zynq-a9       Xilinx Zynq Platform Baseboard for Cortex-A9
+z2                   Zipit Z2 (PXA27x)
+
+Machine types (after):
+none                 empty machine
+virt                 ARM Virtual Machine
+
+Signed-off-by: Wei Huang <wei@redhat.com>
+---
+ default-configs/arm-softmmu.mak |  1 -
+ hw/arm/Makefile.objs            | 12 +-----------
+ 2 files changed, 1 insertion(+), 12 deletions(-)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ default-configs/arm-softmmu.mak |  1 -
+ hw/arm/Makefile.objs            | 12 +-----------
+ 2 files changed, 1 insertion(+), 12 deletions(-)
+
+diff --git a/default-configs/arm-softmmu.mak b/default-configs/arm-softmmu.mak
+index 9613fc4..bcf6a74 100644
+--- a/default-configs/arm-softmmu.mak
++++ b/default-configs/arm-softmmu.mak
+@@ -67,7 +67,6 @@ CONFIG_ARM11SCU=y
+ CONFIG_A9SCU=y
+ CONFIG_DIGIC=y
+ CONFIG_MARVELL_88W8618=y
+-CONFIG_OMAP=y
+ CONFIG_TSC210X=y
+ CONFIG_BLIZZARD=y
+ CONFIG_ONENAND=y
+diff --git a/hw/arm/Makefile.objs b/hw/arm/Makefile.objs
+index 4a68111..8b10e38 100644
+--- a/hw/arm/Makefile.objs
++++ b/hw/arm/Makefile.objs
+@@ -1,11 +1 @@
+-obj-y += boot.o collie.o exynos4_boards.o gumstix.o highbank.o
+-obj-$(CONFIG_DIGIC) += digic_boards.o
+-obj-y += integratorcp.o kzm.o mainstone.o musicpal.o nseries.o
+-obj-y += omap_sx1.o palm.o  spitz.o stellaris.o
+-obj-${CONFIG_REALVIEW} += realview.o vexpress.o versatilepb.o
+-obj-y += tosa.o virt.o xilinx_zynq.o z2.o
+-
+-obj-y += armv7m.o exynos4210.o pxa2xx.o pxa2xx_gpio.o pxa2xx_pic.o
+-obj-$(CONFIG_DIGIC) += digic.o
+-obj-y += omap1.o omap2.o strongarm.o
+-obj-$(CONFIG_ALLWINNER_A10) += allwinner-a10.o cubieboard.o
++obj-y += boot.o virt.o
+-- 
+1.8.3.1
+

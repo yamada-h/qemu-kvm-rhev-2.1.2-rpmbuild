@@ -1,0 +1,249 @@
+From 9e38c32f14d4f46a2f228e250a2a9a1005d29c05 Mon Sep 17 00:00:00 2001
+From: John Snow <jsnow@redhat.com>
+Date: Tue, 7 Oct 2014 10:52:22 +0200
+Subject: [PATCH 04/21] ide: Update ide_drive_get to be HBA agnostic
+
+Message-id: <1412679144-17302-5-git-send-email-jsnow@redhat.com>
+Patchwork-id: 61600
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH 4/6] ide: Update ide_drive_get to be HBA agnostic
+Bugzilla: 946993
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+
+Instead of duplicating the logic for the if_ide
+(bus,unit) mappings, rely on the blockdev layer
+for managing those mappings for us, and use the
+drive_get_by_index call instead.
+
+This allows ide_drive_get to work for AHCI HBAs
+as well, and can be used in the Q35 initialization.
+
+Lastly, change the nature of the argument to
+ide_drive_get so that represents the number of
+total drives we can support, and not the total
+number of buses. This will prevent array overflows
+if the units-per-default-bus property ever needs
+to be adjusted for compatibility reasons.
+
+Signed-off-by: John Snow <jsnow@redhat.com>
+Reviewed-by: Markus Armbruster <armbru@redhat.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Message-id: 1412187569-23452-5-git-send-email-jsnow@redhat.com
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit d8f94e1bb275ab6a14a15220fd6afd0d04324aeb)
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ blockdev.c                | 17 +++++++++++++++++
+ hw/alpha/dp264.c          |  2 +-
+ hw/i386/pc_piix.c         |  2 +-
+ hw/ide/core.c             | 22 +++++++++++++++++-----
+ hw/mips/mips_fulong2e.c   |  2 +-
+ hw/mips/mips_malta.c      |  2 +-
+ hw/mips/mips_r4k.c        |  2 +-
+ hw/ppc/mac_newworld.c     |  2 +-
+ hw/ppc/mac_oldworld.c     |  2 +-
+ hw/ppc/prep.c             |  2 +-
+ hw/sparc64/sun4u.c        |  2 +-
+ include/sysemu/blockdev.h |  1 +
+ 12 files changed, 44 insertions(+), 14 deletions(-)
+
+diff --git a/blockdev.c b/blockdev.c
+index 9943ad3..201945a 100644
+--- a/blockdev.c
++++ b/blockdev.c
+@@ -134,6 +134,23 @@ void blockdev_auto_del(BlockDriverState *bs)
+     }
+ }
+ 
++/**
++ * Returns the current mapping of how many units per bus
++ * a particular interface can support.
++ *
++ *  A positive integer indicates n units per bus.
++ *  0 implies the mapping has not been established.
++ * -1 indicates an invalid BlockInterfaceType was given.
++ */
++int drive_get_max_devs(BlockInterfaceType type)
++{
++    if (type >= IF_IDE && type < IF_COUNT) {
++        return if_max_devs[type];
++    }
++
++    return -1;
++}
++
+ static int drive_index_to_bus_id(BlockInterfaceType type, int index)
+ {
+     int max_devs = if_max_devs[type];
+diff --git a/hw/alpha/dp264.c b/hw/alpha/dp264.c
+index b178a03..84a55e4 100644
+--- a/hw/alpha/dp264.c
++++ b/hw/alpha/dp264.c
+@@ -97,7 +97,7 @@ static void clipper_init(MachineState *machine)
+     /* IDE disk setup.  */
+     {
+         DriveInfo *hd[MAX_IDE_BUS * MAX_IDE_DEVS];
+-        ide_drive_get(hd, MAX_IDE_BUS);
++        ide_drive_get(hd, ARRAY_SIZE(hd));
+ 
+         pci_cmd646_ide_init(pci_bus, hd, 0);
+     }
+diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
+index 2e512f0..8c4a5d9 100644
+--- a/hw/i386/pc_piix.c
++++ b/hw/i386/pc_piix.c
+@@ -233,7 +233,7 @@ static void pc_init1(MachineState *machine,
+ 
+     pc_nic_init(isa_bus, pci_bus);
+ 
+-    ide_drive_get(hd, MAX_IDE_BUS);
++    ide_drive_get(hd, ARRAY_SIZE(hd));
+     if (pci_enabled) {
+         PCIDevice *dev;
+         if (xen_enabled()) {
+diff --git a/hw/ide/core.c b/hw/ide/core.c
+index 861212f..acf1910 100644
+--- a/hw/ide/core.c
++++ b/hw/ide/core.c
+@@ -2535,16 +2535,28 @@ const VMStateDescription vmstate_ide_bus = {
+     }
+ };
+ 
+-void ide_drive_get(DriveInfo **hd, int max_bus)
++void ide_drive_get(DriveInfo **hd, int n)
+ {
+     int i;
++    int highest_bus = drive_get_max_bus(IF_IDE) + 1;
++    int max_devs = drive_get_max_devs(IF_IDE);
++    int n_buses = max_devs ? (n / max_devs) : n;
+ 
+-    if (drive_get_max_bus(IF_IDE) >= max_bus) {
+-        fprintf(stderr, "qemu: too many IDE bus: %d\n", max_bus);
++    /*
++     * Note: The number of actual buses available is not known.
++     * We compute this based on the size of the DriveInfo* array, n.
++     * If it is less than max_devs * <num_real_buses>,
++     * We will stop looking for drives prematurely instead of overfilling
++     * the array.
++     */
++
++    if (highest_bus > n_buses) {
++        error_report("Too many IDE buses defined (%d > %d)",
++                     highest_bus, n_buses);
+         exit(1);
+     }
+ 
+-    for(i = 0; i < max_bus * MAX_IDE_DEVS; i++) {
+-        hd[i] = drive_get(IF_IDE, i / MAX_IDE_DEVS, i % MAX_IDE_DEVS);
++    for (i = 0; i < n; i++) {
++        hd[i] = drive_get_by_index(IF_IDE, i);
+     }
+ }
+diff --git a/hw/mips/mips_fulong2e.c b/hw/mips/mips_fulong2e.c
+index f7533ed..5160df6 100644
+--- a/hw/mips/mips_fulong2e.c
++++ b/hw/mips/mips_fulong2e.c
+@@ -349,7 +349,7 @@ static void mips_fulong2e_init(MachineState *machine)
+     pci_bus = bonito_init((qemu_irq *)&(env->irq[2]));
+ 
+     /* South bridge */
+-    ide_drive_get(hd, MAX_IDE_BUS);
++    ide_drive_get(hd, ARRAY_SIZE(hd));
+ 
+     isa_bus = vt82c686b_init(pci_bus, PCI_DEVFN(FULONG2E_VIA_SLOT, 0));
+     if (!isa_bus) {
+diff --git a/hw/mips/mips_malta.c b/hw/mips/mips_malta.c
+index cfb60af..3d74d30 100644
+--- a/hw/mips/mips_malta.c
++++ b/hw/mips/mips_malta.c
+@@ -1145,7 +1145,7 @@ void mips_malta_init(MachineState *machine)
+     pci_bus = gt64120_register(isa_irq);
+ 
+     /* Southbridge */
+-    ide_drive_get(hd, MAX_IDE_BUS);
++    ide_drive_get(hd, ARRAY_SIZE(hd));
+ 
+     piix4_devfn = piix4_init(pci_bus, &isa_bus, 80);
+ 
+diff --git a/hw/mips/mips_r4k.c b/hw/mips/mips_r4k.c
+index 7120293..0b58d63 100644
+--- a/hw/mips/mips_r4k.c
++++ b/hw/mips/mips_r4k.c
+@@ -293,7 +293,7 @@ void mips_r4k_init(MachineState *machine)
+     if (nd_table[0].used)
+         isa_ne2000_init(isa_bus, 0x300, 9, &nd_table[0]);
+ 
+-    ide_drive_get(hd, MAX_IDE_BUS);
++    ide_drive_get(hd, ARRAY_SIZE(hd));
+     for(i = 0; i < MAX_IDE_BUS; i++)
+         isa_ide_init(isa_bus, ide_iobase[i], ide_iobase2[i], ide_irq[i],
+                      hd[MAX_IDE_DEVS * i],
+diff --git a/hw/ppc/mac_newworld.c b/hw/ppc/mac_newworld.c
+index f5bccd2..b25b2e4 100644
+--- a/hw/ppc/mac_newworld.c
++++ b/hw/ppc/mac_newworld.c
+@@ -388,7 +388,7 @@ static void ppc_core99_init(MachineState *machine)
+     macio_init(macio, pic_mem, escc_bar);
+ 
+     /* We only emulate 2 out of 3 IDE controllers for now */
+-    ide_drive_get(hd, MAX_IDE_BUS);
++    ide_drive_get(hd, ARRAY_SIZE(hd));
+ 
+     macio_ide = MACIO_IDE(object_resolve_path_component(OBJECT(macio),
+                                                         "ide[0]"));
+diff --git a/hw/ppc/mac_oldworld.c b/hw/ppc/mac_oldworld.c
+index cd9bdbc..a132b70 100644
+--- a/hw/ppc/mac_oldworld.c
++++ b/hw/ppc/mac_oldworld.c
+@@ -269,7 +269,7 @@ static void ppc_heathrow_init(MachineState *machine)
+         pci_nic_init_nofail(&nd_table[i], pci_bus, "ne2k_pci", NULL);
+ 
+ 
+-    ide_drive_get(hd, MAX_IDE_BUS);
++    ide_drive_get(hd, ARRAY_SIZE(hd));
+ 
+     macio = pci_create(pci_bus, -1, TYPE_OLDWORLD_MACIO);
+     dev = DEVICE(macio);
+diff --git a/hw/ppc/prep.c b/hw/ppc/prep.c
+index f0ef1af..9f484cd 100644
+--- a/hw/ppc/prep.c
++++ b/hw/ppc/prep.c
+@@ -519,7 +519,7 @@ static void ppc_prep_init(MachineState *machine)
+         }
+     }
+ 
+-    ide_drive_get(hd, MAX_IDE_BUS);
++    ide_drive_get(hd, ARRAY_SIZE(hd));
+     for(i = 0; i < MAX_IDE_BUS; i++) {
+         isa_ide_init(isa_bus, ide_iobase[i], ide_iobase2[i], ide_irq[i],
+                      hd[2 * i],
+diff --git a/hw/sparc64/sun4u.c b/hw/sparc64/sun4u.c
+index 33c311b..81f05b5 100644
+--- a/hw/sparc64/sun4u.c
++++ b/hw/sparc64/sun4u.c
+@@ -862,7 +862,7 @@ static void sun4uv_init(MemoryRegion *address_space_mem,
+     for(i = 0; i < nb_nics; i++)
+         pci_nic_init_nofail(&nd_table[i], pci_bus, "ne2k_pci", NULL);
+ 
+-    ide_drive_get(hd, MAX_IDE_BUS);
++    ide_drive_get(hd, ARRAY_SIZE(hd));
+ 
+     pci_cmd646_ide_init(pci_bus, hd, 1);
+ 
+diff --git a/include/sysemu/blockdev.h b/include/sysemu/blockdev.h
+index 2a7b42d..a0188ca 100644
+--- a/include/sysemu/blockdev.h
++++ b/include/sysemu/blockdev.h
+@@ -52,6 +52,7 @@ DriveInfo *drive_get(BlockInterfaceType type, int bus, int unit);
+ bool drive_check_orphaned(void);
+ DriveInfo *drive_get_by_index(BlockInterfaceType type, int index);
+ int drive_get_max_bus(BlockInterfaceType type);
++int drive_get_max_devs(BlockInterfaceType type);
+ DriveInfo *drive_get_next(BlockInterfaceType type);
+ DriveInfo *drive_get_by_blockdev(BlockDriverState *bs);
+ 
+-- 
+1.8.3.1
+

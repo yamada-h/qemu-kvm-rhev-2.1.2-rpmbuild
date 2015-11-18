@@ -1,0 +1,50 @@
+From 529f533c61f49bdbdb72faf836cf94b717555c45 Mon Sep 17 00:00:00 2001
+From: Markus Armbruster <armbru@redhat.com>
+Date: Mon, 7 Jul 2014 10:28:38 +0200
+Subject: [PATCH 154/212] vl: Round memory sizes below 2MiB up to 2MiB
+
+RH-Author: Markus Armbruster <armbru@redhat.com>
+Message-id: <1387459965-19517-2-git-send-email-armbru@redhat.com>
+Patchwork-id: 56389
+O-Subject: [PATCH 7.0 qemu-kvm 1/1] vl: Round memory sizes below 2MiB up to 2MiB
+Bugzilla: 999836
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Luiz Capitulino <lcapitulino@redhat.com>
+RH-Acked-by: Igor Mammedov <imammedo@redhat.com>
+
+From: Markus Armbruster <armbru@redhat.com>
+
+SeaBIOS requires at least 1MiB of RAM, but doesn't doesn't check for
+it.  It simply assumes it's there, and crashes when it isn't, often
+without any indication what's wrong.  No upstream SeaBIOS fix
+expected.
+
+In RHEL-6, we round memory sizes below 2MiB up to 2MiB to protect
+SeaBIOS (commit 551c098 and commit b9d6c40).  Do the same for RHEL-7.
+Not wanted upstream.
+
+Signed-off-by: Markus Armbruster <armbru@redhat.com>
+---
+ vl.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ vl.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/vl.c b/vl.c
+index ab69cdc..d225b8f 100644
+--- a/vl.c
++++ b/vl.c
+@@ -3330,6 +3330,7 @@ int main(int argc, char **argv, char **envp)
+                 }
+ 
+                 sz = QEMU_ALIGN_UP(sz, 8192);
++                sz = MAX(sz, 2 * 1024 * 1024);
+                 ram_size = sz;
+                 if (ram_size != sz) {
+                     error_report("ram size too large");
+-- 
+1.7.1
+

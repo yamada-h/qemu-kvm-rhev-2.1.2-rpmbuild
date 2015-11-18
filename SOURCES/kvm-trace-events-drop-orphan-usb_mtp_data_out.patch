@@ -1,0 +1,44 @@
+From c765c41e2705b93c531809cc2d3f21c91d66f821 Mon Sep 17 00:00:00 2001
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Date: Mon, 20 Oct 2014 16:02:46 +0200
+Subject: [PATCH 08/21] trace-events: drop orphan usb_mtp_data_out
+
+Message-id: <1413820971-23552-3-git-send-email-stefanha@redhat.com>
+Patchwork-id: 61748
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH v2 2/7] trace-events: drop orphan usb_mtp_data_out
+Bugzilla: 1144325
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+
+This trace event was added in commit
+840a178c94dbd3f5b5550fb8621620cb761de72d ("usb: mtp filesharing") but
+never used.
+
+Cc: Gerd Hoffmann <kraxel@redhat.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Reviewed-by: Markus Armbruster <armbru@redhat.com>
+Message-id: 1411394595-15300-3-git-send-email-stefanha@redhat.com
+(cherry picked from commit f4026f269adf72e8b7f1f7479986e63ac3d42546)
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Acked-by: Laszlo Ersek <lersek@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ trace-events | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/trace-events b/trace-events
+index 6e1f226..1a4a081 100644
+--- a/trace-events
++++ b/trace-events
+@@ -443,7 +443,6 @@ usb_mtp_command(int dev, uint16_t code, uint32_t trans, uint32_t arg0, uint32_t
+ usb_mtp_success(int dev, uint32_t trans, uint32_t arg0, uint32_t arg1) "dev %d, trans 0x%x, args 0x%x, 0x%x"
+ usb_mtp_error(int dev, uint16_t code, uint32_t trans, uint32_t arg0, uint32_t arg1) "dev %d, code 0x%x, trans 0x%x, args 0x%x, 0x%x"
+ usb_mtp_data_in(int dev, uint32_t trans, uint32_t len) "dev %d, trans 0x%x, len %d"
+-usb_mtp_data_out(int dev, uint32_t trans, uint32_t len) "dev %d, trans 0x%x, len %d"
+ usb_mtp_xfer(int dev, uint32_t ep, uint32_t dlen, uint32_t plen) "dev %d, ep %d, %d/%d"
+ usb_mtp_nak(int dev, uint32_t ep) "dev %d, ep %d"
+ usb_mtp_stall(int dev, const char *reason) "dev %d, reason: %s"
+-- 
+1.8.3.1
+

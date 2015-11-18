@@ -1,0 +1,137 @@
+From 0171fe37781fac8e8f2af144210050554bd824e1 Mon Sep 17 00:00:00 2001
+From: Eduardo Habkost <ehabkost@redhat.com>
+Date: Fri, 4 Jul 2014 09:52:35 +0200
+Subject: [PATCH 032/212] pc: Replace upstream machine types by RHEL-7 types
+
+RH-Author: Eduardo Habkost <ehabkost@redhat.com>
+Message-id: <1372348663-1706-2-git-send-email-ehabkost@redhat.com>
+Patchwork-id: 52251
+O-Subject: [PATCH v2 1/3] pc: Replace upstream machine types by RHEL-7 types
+Bugzilla: 977864
+RH-Acked-by: Bandan Das <bsd@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+
+From: Markus Armbruster <armbru@redhat.com>
+
+Bugzilla: 977864
+Upstream status: not applicable
+
+Existing machine-types are commented-out instead of being deleted, to
+help avoid backport conflicts in the future.
+
+Signed-off-by: Markus Armbruster <armbru@redhat.com>
+[ehabkost: edited patch description]
+Signed-off-by: Eduardo Habkost <ehabkost@redhat.com>
+---
+ hw/i386/pc_piix.c | 29 +++++++++++++++++++++++++++++
+ hw/i386/pc_q35.c  | 28 ++++++++++++++++++++++++++++
+ 2 files changed, 57 insertions(+)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+
+Conflicts:
+    hw/i386/pc_piix.c
+    hw/i386/pc_q35.c
+
+Rebase note:
+2.0:
+ - Move comment from 1.4 to 1.7 compat mode
+ - MISSING DEFALUT_MACHINE_OPTIONS macro replaced with
+   PC_DEFAULT_MACHINE_OPTIONS
+2.1:
+ - Move comment from 1.4 to 1.7 compat mode
+ - Fix change from QemuInitArgs to MachineType
+---
+ hw/i386/pc_piix.c |   28 ++++++++++++++++++++++++++++
+ hw/i386/pc_q35.c  |   27 +++++++++++++++++++++++++++
+ 2 files changed, 55 insertions(+), 0 deletions(-)
+
+diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
+index 9694f88..ae8b34e 100644
+--- a/hw/i386/pc_piix.c
++++ b/hw/i386/pc_piix.c
+@@ -297,6 +297,7 @@ static void pc_init_pci(MachineState *machine)
+     pc_init1(machine, 1, 1);
+ }
+ 
++#if 0 /* Disabled for Red Hat Enterprise Linux */
+ static void pc_compat_2_0(MachineState *machine)
+ {
+     /* This value depends on the actual DSDT and SSDT compiled into
+@@ -919,3 +920,30 @@ static void pc_machine_init(void)
+ }
+ 
+ machine_init(pc_machine_init);
++
++#endif  /* Disabled for Red Hat Enterprise Linux */
++
++/* Red Hat Enterprise Linux machine types */
++
++static void pc_init_rhel700(MachineState *machine)
++{
++    pc_init_pci(machine);
++}
++
++static QEMUMachine pc_machine_rhel700 = {
++    PC_DEFAULT_MACHINE_OPTIONS,
++    .name = "pc-i440fx-rhel7.0.0",
++    .alias = "pc",
++    .desc = "RHEL 7.0.0 PC (i440FX + PIIX, 1996)",
++    .init = pc_init_rhel700,
++    .hot_add_cpu = pc_hot_add_cpu,
++    .max_cpus = 255,
++    .is_default = 1,
++};
++
++static void rhel_machine_init(void)
++{
++    qemu_register_pc_machine(&pc_machine_rhel700);
++}
++
++machine_init(rhel_machine_init);
+diff --git a/hw/i386/pc_q35.c b/hw/i386/pc_q35.c
+index c39ee98..5f271c2 100644
+--- a/hw/i386/pc_q35.c
++++ b/hw/i386/pc_q35.c
+@@ -278,6 +278,7 @@ static void pc_q35_init(MachineState *machine)
+     }
+ }
+ 
++#if 0 /* Disabled for Red Hat Enterprise Linux */
+ static void pc_compat_2_0(MachineState *machine)
+ {
+     smbios_legacy_mode = true;
+@@ -430,3 +431,29 @@ static void pc_q35_machine_init(void)
+ }
+ 
+ machine_init(pc_q35_machine_init);
++
++#endif  /* Disabled for Red Hat Enterprise Linux */
++
++/* Red Hat Enterprise Linux machine types */
++
++static void pc_q35_init_rhel700(MachineState *machine)
++{
++    pc_q35_init(machine);
++}
++
++static QEMUMachine pc_q35_machine_rhel700 = {
++    PC_DEFAULT_MACHINE_OPTIONS,
++    .name = "pc-q35-rhel7.0.0",
++    .alias = "q35",
++    .desc = "RHEL-7.0.0 PC (Q35 + ICH9, 2009)",
++    .init = pc_q35_init_rhel700,
++    .hot_add_cpu = pc_hot_add_cpu,
++    .max_cpus = 255,
++};
++
++static void rhel_pc_q35_machine_init(void)
++{
++    qemu_register_pc_machine(&pc_q35_machine_rhel700);
++}
++
++machine_init(rhel_pc_q35_machine_init);
+-- 
+1.7.1
+

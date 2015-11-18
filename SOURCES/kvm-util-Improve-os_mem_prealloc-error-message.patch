@@ -1,0 +1,52 @@
+From a18651fc351ddcb7bfe510e85570b68212f15e02 Mon Sep 17 00:00:00 2001
+From: Luiz Capitulino <lcapitulino@redhat.com>
+Date: Tue, 4 Nov 2014 18:26:08 +0100
+Subject: [PATCH 08/15] util: Improve os_mem_prealloc error message
+
+Message-id: <20141104132608.310567a7@redhat.com>
+Patchwork-id: 62082
+O-Subject: [RHEL7.1 qemu-kvm-rhev PATCH] util: Improve os_mem_prealloc error message
+Bugzilla: 1153590
+RH-Acked-by: Andrew Jones <drjones@redhat.com>
+RH-Acked-by: Amos Kong <amos@redhat.com>
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+
+Currently, when the preallocating guest memory process fails, a not
+so helpful error message is printed out:
+
+    # virsh start migt10
+    error: Failed to start domain migt10
+    error: internal error: process exited while connecting to monitor:
+    os_mem_prealloc: failed to preallocate pages
+
+>From the error message it's not clear at the first glance where the
+problem lies. However, changing the error message might give users a
+clue.
+
+Signed-off-by: Michal Privoznik <mprivozn@redhat.com>
+Reviewed-by: Eric Blake <eblake@redhat.com>
+Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+(cherry picked from commit 404ac83efd5761c6b590fd9f00fbbe8ee2281aa6)
+Signed-off-by: Luiz Capitulino <lcapitulino@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ util/oslib-posix.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/util/oslib-posix.c b/util/oslib-posix.c
+index cdbfb2e..d6e3a20 100644
+--- a/util/oslib-posix.c
++++ b/util/oslib-posix.c
+@@ -386,7 +386,8 @@ void os_mem_prealloc(int fd, char *area, size_t memory)
+     pthread_sigmask(SIG_UNBLOCK, &set, &oldset);
+ 
+     if (sigsetjmp(sigjump, 1)) {
+-        fprintf(stderr, "os_mem_prealloc: failed to preallocate pages\n");
++        fprintf(stderr, "os_mem_prealloc: Insufficient free host memory "
++                        "pages available to allocate guest RAM\n");
+         exit(1);
+     } else {
+         int i;
+-- 
+1.8.3.1
+

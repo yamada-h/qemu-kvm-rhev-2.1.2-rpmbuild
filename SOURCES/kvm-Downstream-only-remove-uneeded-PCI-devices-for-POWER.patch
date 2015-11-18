@@ -1,0 +1,69 @@
+From 6459739ca82704d176660df34dedc359eb597334 Mon Sep 17 00:00:00 2001
+From: dgibson <dgibson@redhat.com>
+Date: Wed, 5 Nov 2014 07:07:41 +0100
+Subject: [PATCH 10/15] Downstream only: remove uneeded PCI devices for POWER
+
+Message-id: <1415171263-1587-2-git-send-email-dgibson@redhat.com>
+Patchwork-id: 62135
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCHv3 1/3] Downstream only: remove uneeded PCI devices for POWER
+Bugzilla: 1160120
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Gerd Hoffmann <kraxel@redhat.com>
+RH-Acked-by: Juan Quintela <quintela@redhat.com>
+
+At present builds of qemu-kvm-rhev for POWER use the common PCI device
+configuration, which includes a number of common emulated PCI devices.
+
+However, existing POWER guests are designed for the PAPR environment and
+PowerVM, which provides no emulated PCI devices, only PCI passthrough and
+virtual devices.
+
+Therefore, there's little point providing most of the emulated PCI devices,
+guests can be expected to use either virtio or the PAPR virtual devices.
+Some of the existing devices in particular make no sense on POWER since
+they are supplied by x86 specific chipsets.
+
+We do need to retain a few, specifically VGA and USB host controllers
+(OHCI, EHCI and XHCI), which we need to provide a graphical console for the
+guest.
+
+Therefore, this this patch removes unnecessary PCI devices from the
+configuration for POWER specifically removing:
+    ich9-usb-uhci*, piix[34]-usb-uhci, vt82c686b-usb-uhci, ich9-ahci,
+    e1000*, rtl8139, pci-serial, AC97, ich9-intel-hda, intel-hda
+
+As a consequence of losing the IDE and HDA controllers, we also lose:
+    ide-cd, ide-drive, ide-hd
+    hda-duplex, hda-micro, hda-output
+
+None of which are relevant on POWER.
+
+Signed-off-by: David Gibson <dgibson@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ default-configs/ppc64-softmmu.mak | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/default-configs/ppc64-softmmu.mak b/default-configs/ppc64-softmmu.mak
+index 01c049e..bd83712 100644
+--- a/default-configs/ppc64-softmmu.mak
++++ b/default-configs/ppc64-softmmu.mak
+@@ -1,6 +1,14 @@
+ # Default configuration for ppc64-softmmu
+ 
+-include pci.mak
++# PCI configuration - cut down from the defaults in pci.mak
++CONFIG_PCI=y
++CONFIG_VIRTIO_PCI=y
++CONFIG_VIRTIO=y
++CONFIG_USB_EHCI=y
++CONFIG_USB_XHCI=y
++CONFIG_WDT_IB6300ESB=y
++CONFIG_PCI_TESTDEV=y
++
+ include sound.mak
+ include usb.mak
+ CONFIG_ISA_MMIO=y
+-- 
+1.8.3.1
+

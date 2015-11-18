@@ -1,0 +1,61 @@
+From 2fa657ad7e036ce4d808a041d78ea4a426fe3ac5 Mon Sep 17 00:00:00 2001
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Date: Fri, 3 Oct 2014 15:49:00 +0200
+Subject: [PATCH 3/4] block: fix overlapping multiwrite requests
+
+Message-id: <1412351341-29609-2-git-send-email-stefanha@redhat.com>
+Patchwork-id: 61568
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH 1/2] block: fix overlapping multiwrite requests
+Bugzilla: 1123908
+RH-Acked-by: Max Reitz <mreitz@redhat.com>
+RH-Acked-by: Fam Zheng <famz@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+
+When request A is a strict superset of request B:
+
+  AAAAAAAA
+    BBBB
+
+multiwrite_merge() merges them as follows:
+
+  AABBBB
+
+The tail of request A should have been included:
+
+  AABBBBAA
+
+This patch fixes data loss but this code path is probably rare.  Since
+guests cannot assume ordering between in-flight requests, few
+applications submit overlapping write requests.
+
+Reported-by: Slava Pestov <sviatoslav.pestov@gmail.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Reviewed-by: Eric Blake <eblake@redhat.com>
+Reviewed-by: Benoit Canet <benoit@irqsave.net>
+(cherry picked from commit 391827eb106d2d02062b2582d1545a7c221631c6)
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ block.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/block.c b/block.c
+index 8da95f3..8a82f8d 100644
+--- a/block.c
++++ b/block.c
+@@ -4537,6 +4537,12 @@ static int multiwrite_merge(BlockDriverState *bs, BlockRequest *reqs,
+             // Add the second request
+             qemu_iovec_concat(qiov, reqs[i].qiov, 0, reqs[i].qiov->size);
+ 
++            // Add tail of first request, if necessary
++            if (qiov->size < reqs[outidx].qiov->size) {
++                qemu_iovec_concat(qiov, reqs[outidx].qiov, qiov->size,
++                                  reqs[outidx].qiov->size - qiov->size);
++            }
++
+             reqs[outidx].nb_sectors = qiov->size >> 9;
+             reqs[outidx].qiov = qiov;
+ 
+-- 
+1.8.3.1
+

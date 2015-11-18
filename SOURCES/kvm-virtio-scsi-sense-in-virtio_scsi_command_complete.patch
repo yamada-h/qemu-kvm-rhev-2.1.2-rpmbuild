@@ -1,0 +1,44 @@
+From ff8f678f2609c112b180e9203c1f7844d8ca2304 Mon Sep 17 00:00:00 2001
+From: Fam Zheng <famz@redhat.com>
+Date: Mon, 3 Nov 2014 08:50:15 +0100
+Subject: [PATCH 8/8] virtio-scsi: sense in virtio_scsi_command_complete
+
+Message-id: <1415004615-7834-1-git-send-email-famz@redhat.com>
+Patchwork-id: 62032
+O-Subject: [RHEL-7.1 qemu-kvm-rhev PATCH] virtio-scsi: sense in virtio_scsi_command_complete
+Bugzilla: 1152830
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+
+From: Ting Wang <kathy.wangting@huawei.com>
+
+If req->resp.cmd.status is not GOOD, the address of sense for
+qemu_iovec_from_buf should be modified from &req->resp to sense.
+
+Cc: qemu-stable@nongnu.org
+Signed-off-by: Ting Wang <kathy.wangting@huawei.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit b7890c40e557f4733b6fcd1eb79af79b70dc8c05)
+Signed-off-by: Fam Zheng <famz@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/scsi/virtio-scsi.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/hw/scsi/virtio-scsi.c b/hw/scsi/virtio-scsi.c
+index 2dd9255..e4276fc 100644
+--- a/hw/scsi/virtio-scsi.c
++++ b/hw/scsi/virtio-scsi.c
+@@ -400,7 +400,7 @@ static void virtio_scsi_command_complete(SCSIRequest *r, uint32_t status,
+         sense_len = scsi_req_get_sense(r, sense, sizeof(sense));
+         sense_len = MIN(sense_len, req->resp_iov.size - sizeof(req->resp.cmd));
+         qemu_iovec_from_buf(&req->resp_iov, sizeof(req->resp.cmd),
+-                            &req->resp, sense_len);
++                            sense, sense_len);
+         req->resp.cmd.sense_len = virtio_tswap32(vdev, sense_len);
+     }
+     virtio_scsi_complete_cmd_req(req);
+-- 
+1.8.3.1
+

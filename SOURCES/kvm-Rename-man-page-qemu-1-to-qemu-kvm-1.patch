@@ -1,0 +1,31 @@
+From 04f4c33ffd833f836ca95f47db077edca462a97f Mon Sep 17 00:00:00 2001
+From: Miroslav Rezanina <mrezanin@redhat.com>
+Date: Thu, 11 Apr 2013 10:28:14 +0200
+Subject: [PATCH 016/212] Rename man page qemu(1) to qemu-kvm(1).
+
+Bugzilla: 893318
+
+We rename qemu binary to qemu-kvm so we need to change man page name accordingly.
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ Makefile                      |    2 +-
+ redhat/qemu-kvm.spec.template |    7 +------
+ 2 files changed, 2 insertions(+), 7 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index d6b9dc1..5c3878b 100644
+--- a/Makefile
++++ b/Makefile
+@@ -356,7 +356,7 @@ install-doc: $(DOCS)
+ 	$(INSTALL_DATA) qmp-commands.txt "$(DESTDIR)$(qemu_docdir)"
+ ifdef CONFIG_POSIX
+ 	$(INSTALL_DIR) "$(DESTDIR)$(mandir)/man1"
+-	$(INSTALL_DATA) qemu.1 "$(DESTDIR)$(mandir)/man1"
++	$(INSTALL_DATA) qemu.1 "$(DESTDIR)$(mandir)/man1/qemu-kvm.1"
+ ifneq ($(TOOLS),)
+ 	$(INSTALL_DATA) qemu-img.1 "$(DESTDIR)$(mandir)/man1"
+ 	$(INSTALL_DIR) "$(DESTDIR)$(mandir)/man8"
+-- 
+1.7.1
+

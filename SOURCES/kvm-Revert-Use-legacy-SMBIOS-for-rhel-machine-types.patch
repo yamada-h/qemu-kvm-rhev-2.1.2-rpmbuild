@@ -1,0 +1,43 @@
+From cbd172d38d8bceebc6d1678e4c7b0ec3ac765662 Mon Sep 17 00:00:00 2001
+From: Markus Armbruster <armbru@redhat.com>
+Date: Mon, 11 Aug 2014 07:54:36 +0200
+Subject: [PATCH 02/16] Revert "Use legacy SMBIOS for rhel machine types."
+
+Message-id: <1407743689-13553-3-git-send-email-armbru@redhat.com>
+Patchwork-id: 60502
+O-Subject: [PATCH RHEV-7.1 qemu-kvm-rhev 02/15] Revert "Use legacy SMBIOS for rhel machine types."
+Bugzilla: 1118665
+RH-Acked-by: Eduardo Habkost <ehabkost@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+
+This reverts commit 6871e380d83d42541b89790129ae957c653e463c.
+
+Incorrect, because it neglects to cover pc-*-rhel7.0.0.
+
+Signed-off-by: Markus Armbruster <armbru@redhat.com>
+---
+ hw/i386/pc_piix.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/i386/pc_piix.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
+
+diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
+index 1393ca1..519c9cd 100644
+--- a/hw/i386/pc_piix.c
++++ b/hw/i386/pc_piix.c
+@@ -1120,8 +1120,6 @@ static void pc_compat_rhel650(MachineState *machine)
+     if (!machine->cpu_model) {
+         machine->cpu_model = "cpu64-rhel6";
+     }
+-    smbios_legacy_mode = true;
+-
+     x86_cpu_compat_set_features("pentium", FEAT_1_EDX, 0, CPUID_APIC);
+     x86_cpu_compat_set_features("pentium2", FEAT_1_EDX, 0, CPUID_APIC);
+     x86_cpu_compat_set_features("pentium3", FEAT_1_EDX, 0, CPUID_APIC);
+-- 
+1.7.1
+

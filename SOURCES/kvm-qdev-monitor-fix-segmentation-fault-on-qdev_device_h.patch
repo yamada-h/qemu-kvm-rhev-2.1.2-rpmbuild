@@ -1,0 +1,72 @@
+From 7fe3c69996fe910e79767efd8c6ee85e5c918ea7 Mon Sep 17 00:00:00 2001
+Message-Id: <7fe3c69996fe910e79767efd8c6ee85e5c918ea7.1418787305.git.jen@redhat.com>
+In-Reply-To: <c0f9fa126e925a00235d9077b474dabb4dbdfdc1.1418787305.git.jen@redhat.com>
+References: <c0f9fa126e925a00235d9077b474dabb4dbdfdc1.1418787305.git.jen@redhat.com>
+From: dgibson <dgibson@redhat.com>
+Date: Mon, 8 Dec 2014 01:22:59 -0600
+Subject: [CHANGE 10/12] qdev-monitor: fix segmentation fault on
+ qdev_device_help()
+To: rhvirt-patches@redhat.com,
+    jen@redhat.com
+
+RH-Author: dgibson <dgibson@redhat.com>
+Message-id: <1418001779-29173-1-git-send-email-dgibson@redhat.com>
+Patchwork-id: 62745
+O-Subject: [PATCH] qdev-monitor: fix segmentation fault on qdev_device_help()
+Bugzilla: 1169280
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Amos Kong <akong@redhat.com>
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+
+Normally, qmp_device_list_properties() may return NULL when
+a device haven't special properties excpet Object and DeviceState
+properties, such as virtio-balloon-device.
+
+We just need check local_err instead of prop_list.
+
+Example:
+
+Segmentation fault (core dumped)
+
+The backtrace as below:
+
+Program received signal SIGSEGV, Segmentation fault.
+0x00005555559af1a8 in error_get_pretty (err=0x0) at util/error.c:152
+152         return err->msg;
+(gdb) bt
+    func=0x55555574a6ca <device_help_func>, opaque=0x0, abort_on_failure=0) at util/qemu-option.c:1072
+
+Signed-off-by: Gonglei <arei.gonglei@huawei.com>
+Reviewed-by: Markus Armbruster <armbru@redhat.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit 0722eba9450cb8be9713fec1caa0772330739586)
+
+BZ: https://bugzilla.redhat.com/show_bug.cgi?id=1169280
+Brew: http://brewweb.devel.redhat.com/brew/taskinfo?taskID=8339810
+
+Signed-off-by: David Gibson <dgibson@redhat.com>
+---
+ qdev-monitor.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Signed-off-by: Jeff E. Nelson <jen@redhat.com>
+---
+ qdev-monitor.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/qdev-monitor.c b/qdev-monitor.c
+index 5fe5e75..71a1f33 100644
+--- a/qdev-monitor.c
++++ b/qdev-monitor.c
+@@ -206,7 +206,7 @@ int qdev_device_help(QemuOpts *opts)
+     }
+ 
+     prop_list = qmp_device_list_properties(driver, &local_err);
+-    if (!prop_list) {
++    if (local_err) {
+         error_printf("%s\n", error_get_pretty(local_err));
+         error_free(local_err);
+         return 1;
+-- 
+2.1.0
+

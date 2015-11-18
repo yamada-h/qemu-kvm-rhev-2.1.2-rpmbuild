@@ -1,0 +1,63 @@
+From cfe1949d7141b2e2503097615948bdf510dd24a1 Mon Sep 17 00:00:00 2001
+From: Luiz Capitulino <lcapitulino@redhat.com>
+Date: Tue, 16 Sep 2014 13:14:16 +0200
+Subject: [PATCH 12/14] exec: file_ram_alloc(): print error when prealloc fails
+
+Message-id: <20140916091416.2b77f5ce@redhat.com>
+Patchwork-id: 61170
+O-Subject: [RHEV7.1 qemu-kvm-rhev PATCH] exec: file_ram_alloc(): print error when prealloc fails
+Bugzilla: 1135893
+RH-Acked-by: Juan Quintela <quintela@redhat.com>
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+RH-Acked-by: Amit Shah <amit.shah@redhat.com>
+
+Bugzilla: https://bugzilla.redhat.com/show_bug.cgi?id=1135893
+Brew: https://brewweb.devel.redhat.com/taskinfo?taskID=7966950
+Upstream: Merged
+
+If memory allocation fails when using the -mem-prealloc command-line
+option, QEMU exits without printing any error information to
+the user:
+
+ # qemu [...] -m 1G -mem-prealloc -mem-path /dev/hugepages
+ # echo $?
+ 1
+
+This commit adds an error message, so that we print instead:
+
+ # qemu [...] -m 1G -mem-prealloc -mem-path /dev/hugepages
+ qemu: unable to map backing store for hugepages: Cannot allocate memory
+
+Signed-off-by: Luiz Capitulino <lcapitulino@redhat.com>
+Reviewed-by: Eric Blake <eblake@redhat.com>
+(cherry picked from commit e4d9df4fb16861f413374b69fcdb12c8c7a4a17e)
+Signed-off-by: Luiz Capitulino <lcapitulino@redhat.com>
+---
+
+Question: this patch is probably going to be part of a future v2.1
+          stable release. Do we apply it right now or wait for the
+          stable release?
+
+ exec.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ exec.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/exec.c b/exec.c
+index 765bd94..2a841eb 100644
+--- a/exec.c
++++ b/exec.c
+@@ -1095,6 +1095,7 @@ static void *file_ram_alloc(RAMBlock *block,
+ 
+ error:
+     if (mem_prealloc) {
++        error_report("%s\n", error_get_pretty(*errp));
+         exit(1);
+     }
+     return NULL;
+-- 
+1.7.1
+

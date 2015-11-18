@@ -1,0 +1,74 @@
+From 41121ae1f9c3dab44a71d2390e1ec61ecf099531 Mon Sep 17 00:00:00 2001
+From: Markus Armbruster <armbru@redhat.com>
+Date: Wed, 9 Jul 2014 15:37:24 +0200
+Subject: [PATCH 198/212] rhel: SMBIOS type 1 branding
+
+RH-Author: Markus Armbruster <armbru@redhat.com>
+Message-id: <1383386488-29789-12-git-send-email-armbru@redhat.com>
+Patchwork-id: 55242
+O-Subject: [PATCH 7.0 qemu-kvm 11/11] rhel: SMBIOS type 1 branding
+Bugzilla: 994490
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+
+From: Markus Armbruster <armbru@redhat.com>
+
+The previous two commits got us the upstreamable parts of RHEL-6
+commit 68c63bd "per-machine-type smbios Type 1 smbios values".  This
+is the RHEL-only part.
+
+Note: RHEL-6 also has commit 8e0d71e "Set SMBIOS vendor to QEMU for
+RHEL5 machine types.", which RHEL-7 doesn't need, because it doesn't
+have RHEL-5 machine types.
+
+Signed-off-by: Markus Armbruster <armbru@redhat.com>
+---
+ hw/i386/pc_piix.c |    3 +--
+ hw/i386/pc_q35.c  |    3 +--
+ hw/i386/smbios.c  |    1 +
+ 3 files changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
+index 6f8420d..3d0e764 100644
+--- a/hw/i386/pc_piix.c
++++ b/hw/i386/pc_piix.c
+@@ -173,8 +173,7 @@ static void pc_init1(MachineState *machine,
+     if (smbios_defaults) {
+         MachineClass *mc = MACHINE_GET_CLASS(machine);
+         /* These values are guest ABI, do not change */
+-        smbios_set_defaults("QEMU", "Standard PC (i440FX + PIIX, 1996)",
+-                            mc->name, smbios_legacy_mode);
++        smbios_set_defaults("Red Hat", "KVM", mc->desc, smbios_legacy_mode);
+     }
+ 
+     /* allocate ram and load rom/bios */
+diff --git a/hw/i386/pc_q35.c b/hw/i386/pc_q35.c
+index dbf9983..a72654d 100644
+--- a/hw/i386/pc_q35.c
++++ b/hw/i386/pc_q35.c
+@@ -163,8 +163,7 @@ static void pc_q35_init(MachineState *machine)
+     if (smbios_defaults) {
+         MachineClass *mc = MACHINE_GET_CLASS(machine);
+         /* These values are guest ABI, do not change */
+-        smbios_set_defaults("QEMU", "Standard PC (Q35 + ICH9, 2009)",
+-                            mc->name, smbios_legacy_mode);
++        smbios_set_defaults("Red Hat", "KVM", mc->desc, smbios_legacy_mode);
+     }
+ 
+     /* allocate ram and load rom/bios */
+diff --git a/hw/i386/smbios.c b/hw/i386/smbios.c
+index e3fa1b2..5bf97a1 100644
+--- a/hw/i386/smbios.c
++++ b/hw/i386/smbios.c
+@@ -768,6 +768,7 @@ void smbios_set_defaults(const char *manufacturer, const char *product,
+     SMBIOS_SET_DEFAULT(type1.manufacturer, manufacturer);
+     SMBIOS_SET_DEFAULT(type1.product, product);
+     SMBIOS_SET_DEFAULT(type1.version, version);
++    SMBIOS_SET_DEFAULT(type1.family, "Red Hat Enterprise Linux");
+     SMBIOS_SET_DEFAULT(type2.manufacturer, manufacturer);
+     SMBIOS_SET_DEFAULT(type2.product, product);
+     SMBIOS_SET_DEFAULT(type2.version, version);
+-- 
+1.7.1
+

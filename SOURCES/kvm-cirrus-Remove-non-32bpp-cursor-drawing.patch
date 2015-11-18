@@ -1,0 +1,232 @@
+From a1e46b976cc9ef644bc90d3be4d23defcc4c0831 Mon Sep 17 00:00:00 2001
+From: dgibson <dgibson@redhat.com>
+Date: Wed, 29 Oct 2014 05:04:05 +0100
+Subject: [PATCH 07/48] cirrus: Remove non-32bpp cursor drawing
+
+Message-id: <1414559050-21089-7-git-send-email-dgibson@redhat.com>
+Patchwork-id: 61980
+O-Subject: [RHEL 7.1 qemu-kvm-rhev 06/11] cirrus: Remove non-32bpp cursor drawing
+Bugzilla: 1146809
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Gerd Hoffmann <kraxel@redhat.com>
+
+Signed-off-by: David Gibson <dgibson@redhat.com>
+
+commit 70a041fe2cc26b7a58c17e26f797fbc2c90c535a
+Author: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date:   Sun Jun 22 11:04:24 2014 +1000
+
+    cirrus: Remove non-32bpp cursor drawing
+
+    We only draw cursor on non-shared surfaces (so it seems...) and
+    these are always 32bpp
+
+    Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+    Signed-off-by: Gerd Hoffmann <kraxel@redhat.com>
+    Reviewed-by: David Gibson <david@gibson.dropbear.id.au>
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/display/cirrus_vga.c          |  64 +++++++++++++-----------
+ hw/display/cirrus_vga_template.h | 102 ---------------------------------------
+ 2 files changed, 36 insertions(+), 130 deletions(-)
+ delete mode 100644 hw/display/cirrus_vga_template.h
+
+diff --git a/hw/display/cirrus_vga.c b/hw/display/cirrus_vga.c
+index 8c73dcf..df10485 100644
+--- a/hw/display/cirrus_vga.c
++++ b/hw/display/cirrus_vga.c
+@@ -2171,20 +2171,44 @@ static void cirrus_cursor_invalidate(VGACommonState *s1)
+     }
+ }
+ 
+-#define DEPTH 8
+-#include "cirrus_vga_template.h"
+-
+-#define DEPTH 16
+-#include "cirrus_vga_template.h"
+-
+-#define DEPTH 32
+-#include "cirrus_vga_template.h"
++static void vga_draw_cursor_line(uint8_t *d1,
++                                 const uint8_t *src1,
++                                 int poffset, int w,
++                                 unsigned int color0,
++                                 unsigned int color1,
++                                 unsigned int color_xor)
++{
++    const uint8_t *plane0, *plane1;
++    int x, b0, b1;
++    uint8_t *d;
++
++    d = d1;
++    plane0 = src1;
++    plane1 = src1 + poffset;
++    for (x = 0; x < w; x++) {
++        b0 = (plane0[x >> 3] >> (7 - (x & 7))) & 1;
++        b1 = (plane1[x >> 3] >> (7 - (x & 7))) & 1;
++        switch (b0 | (b1 << 1)) {
++        case 0:
++            break;
++        case 1:
++            ((uint32_t *)d)[0] ^= color_xor;
++            break;
++        case 2:
++            ((uint32_t *)d)[0] = color0;
++            break;
++        case 3:
++            ((uint32_t *)d)[0] = color1;
++            break;
++        }
++        d += 4;
++    }
++}
+ 
+ static void cirrus_cursor_draw_line(VGACommonState *s1, uint8_t *d1, int scr_y)
+ {
+     CirrusVGAState *s = container_of(s1, CirrusVGAState, vga);
+-    DisplaySurface *surface = qemu_console_surface(s->vga.con);
+-    int w, h, bpp, x1, x2, poffset;
++    int w, h, x1, x2, poffset;
+     unsigned int color0, color1;
+     const uint8_t *palette, *src;
+     uint32_t content;
+@@ -2238,24 +2262,8 @@ static void cirrus_cursor_draw_line(VGACommonState *s1, uint8_t *d1, int scr_y)
+     color1 = rgb_to_pixel32(c6_to_8(palette[0xf * 3]),
+                             c6_to_8(palette[0xf * 3 + 1]),
+                             c6_to_8(palette[0xf * 3 + 2]));
+-    bpp = surface_bytes_per_pixel(surface);
+-    d1 += x1 * bpp;
+-    switch (surface_bits_per_pixel(surface)) {
+-    default:
+-        break;
+-    case 8:
+-        vga_draw_cursor_line_8(d1, src, poffset, w, color0, color1, 0xff);
+-        break;
+-    case 15:
+-        vga_draw_cursor_line_16(d1, src, poffset, w, color0, color1, 0x7fff);
+-        break;
+-    case 16:
+-        vga_draw_cursor_line_16(d1, src, poffset, w, color0, color1, 0xffff);
+-        break;
+-    case 32:
+-        vga_draw_cursor_line_32(d1, src, poffset, w, color0, color1, 0xffffff);
+-        break;
+-    }
++    d1 += x1 * 4;
++    vga_draw_cursor_line(d1, src, poffset, w, color0, color1, 0xffffff);
+ }
+ 
+ /***************************************
+diff --git a/hw/display/cirrus_vga_template.h b/hw/display/cirrus_vga_template.h
+deleted file mode 100644
+index 3b28280..0000000
+--- a/hw/display/cirrus_vga_template.h
++++ /dev/null
+@@ -1,102 +0,0 @@
+-/*
+- * QEMU Cirrus VGA Emulator templates
+- *
+- * Copyright (c) 2003 Fabrice Bellard
+- *
+- * Permission is hereby granted, free of charge, to any person obtaining a copy
+- * of this software and associated documentation files (the "Software"), to deal
+- * in the Software without restriction, including without limitation the rights
+- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+- * copies of the Software, and to permit persons to whom the Software is
+- * furnished to do so, subject to the following conditions:
+- *
+- * The above copyright notice and this permission notice shall be included in
+- * all copies or substantial portions of the Software.
+- *
+- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+- * THE SOFTWARE.
+- */
+-
+-#if DEPTH == 8
+-#define BPP 1
+-#elif DEPTH == 15 || DEPTH == 16
+-#define BPP 2
+-#elif DEPTH == 32
+-#define BPP 4
+-#else
+-#error unsupported depth
+-#endif
+-
+-static void glue(vga_draw_cursor_line_, DEPTH)(uint8_t *d1,
+-                                               const uint8_t *src1,
+-                                               int poffset, int w,
+-                                               unsigned int color0,
+-                                               unsigned int color1,
+-                                               unsigned int color_xor)
+-{
+-    const uint8_t *plane0, *plane1;
+-    int x, b0, b1;
+-    uint8_t *d;
+-
+-    d = d1;
+-    plane0 = src1;
+-    plane1 = src1 + poffset;
+-    for (x = 0; x < w; x++) {
+-        b0 = (plane0[x >> 3] >> (7 - (x & 7))) & 1;
+-        b1 = (plane1[x >> 3] >> (7 - (x & 7))) & 1;
+-#if DEPTH == 8
+-        switch (b0 | (b1 << 1)) {
+-        case 0:
+-            break;
+-        case 1:
+-            d[0] ^= color_xor;
+-            break;
+-        case 2:
+-            d[0] = color0;
+-            break;
+-        case 3:
+-            d[0] = color1;
+-            break;
+-        }
+-#elif DEPTH == 16
+-        switch (b0 | (b1 << 1)) {
+-        case 0:
+-            break;
+-        case 1:
+-            ((uint16_t *)d)[0] ^= color_xor;
+-            break;
+-        case 2:
+-            ((uint16_t *)d)[0] = color0;
+-            break;
+-        case 3:
+-            ((uint16_t *)d)[0] = color1;
+-            break;
+-        }
+-#elif DEPTH == 32
+-        switch (b0 | (b1 << 1)) {
+-        case 0:
+-            break;
+-        case 1:
+-            ((uint32_t *)d)[0] ^= color_xor;
+-            break;
+-        case 2:
+-            ((uint32_t *)d)[0] = color0;
+-            break;
+-        case 3:
+-            ((uint32_t *)d)[0] = color1;
+-            break;
+-        }
+-#else
+-#error unsupported depth
+-#endif
+-        d += BPP;
+-    }
+-}
+-
+-#undef DEPTH
+-#undef BPP
+-- 
+1.8.3.1
+

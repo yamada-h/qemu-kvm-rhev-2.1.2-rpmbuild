@@ -1,0 +1,46 @@
+From 5dad5274a2861f59941f1b57a751891a435d804c Mon Sep 17 00:00:00 2001
+From: Eduardo Habkost <ehabkost@redhat.com>
+Date: Fri, 9 Jan 2015 18:58:16 +0100
+Subject: [PATCH 2/2] smbios: Don't report unknown CPU speed (fix SVVP
+ regression)
+
+Message-id: <1420829896-30146-3-git-send-email-ehabkost@redhat.com>
+Patchwork-id: 63234
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH 2/2] smbios: Don't report unknown CPU speed (fix SVVP regression)
+Bugzilla: 1177127
+RH-Acked-by: Gerd Hoffmann <kraxel@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+
+SVVP requires processor speed on Type 4 structures to not be unknown.
+This was fixed in SeaBIOS 0.5.0 (in 2009), but the bug was reintroduced
+in QEMU 2.1.
+
+Revert to old behavior and report CPU speed as 2000 MHz instead of
+unknown.
+
+Signed-off-by: Eduardo Habkost <ehabkost@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/i386/smbios.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/hw/i386/smbios.c b/hw/i386/smbios.c
+index fe8686e..88a1c85 100644
+--- a/hw/i386/smbios.c
++++ b/hw/i386/smbios.c
+@@ -618,8 +618,9 @@ static void smbios_build_type_4_table(unsigned instance)
+     SMBIOS_TABLE_SET_STR(4, processor_version_str, type4.version);
+     t->voltage = 0;
+     t->external_clock = cpu_to_le16(0); /* Unknown */
+-    t->max_speed = cpu_to_le16(0); /* Unknown */
+-    t->current_speed = cpu_to_le16(0); /* Unknown */
++    /* SVVP requires max_speed and current_speed to not be unknown. */
++    t->max_speed = cpu_to_le16(2000); /* 2000 MHz */
++    t->current_speed = cpu_to_le16(2000); /* 2000 MHz */
+     t->status = 0x41; /* Socket populated, CPU enabled */
+     t->processor_upgrade = 0x01; /* Other */
+     t->l1_cache_handle = cpu_to_le16(0xFFFF); /* N/A */
+-- 
+1.8.3.1
+

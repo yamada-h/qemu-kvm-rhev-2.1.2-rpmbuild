@@ -1,0 +1,54 @@
+From e32f156261885535a64c5c42431fa1a59cc2367c Mon Sep 17 00:00:00 2001
+From: John Snow <jsnow@redhat.com>
+Date: Fri, 14 Nov 2014 22:07:27 +0100
+Subject: [PATCH 39/48] ide: stop PIO transfer on errors
+
+Message-id: <1416002855-4964-13-git-send-email-jsnow@redhat.com>
+Patchwork-id: 62396
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH v2 12/20] ide: stop PIO transfer on errors
+Bugzilla: 1024599
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+
+From: Paolo Bonzini <pbonzini@redhat.com>
+
+This will provide a hook for sending the result of the command via the
+FIS receive area.
+
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit 08ee9e3368be0e9394037d339fc4ebf1392a9896)
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/ide/core.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/hw/ide/core.c b/hw/ide/core.c
+index 1b97a95..b3909ee 100644
+--- a/hw/ide/core.c
++++ b/hw/ide/core.c
+@@ -458,6 +458,7 @@ BlockDriverAIOCB *ide_issue_trim(BlockDriverState *bs,
+ 
+ static inline void ide_abort_command(IDEState *s)
+ {
++    ide_transfer_stop(s);
+     s->status = READY_STAT | ERR_STAT;
+     s->error = ABRT_ERR;
+ }
+@@ -643,9 +644,7 @@ void ide_set_inactive(IDEState *s, bool more)
+ 
+ void ide_dma_error(IDEState *s)
+ {
+-    ide_transfer_stop(s);
+-    s->error = ABRT_ERR;
+-    s->status = READY_STAT | ERR_STAT;
++    ide_abort_command(s);
+     ide_set_inactive(s, false);
+     ide_set_irq(s->bus);
+ }
+-- 
+1.8.3.1
+

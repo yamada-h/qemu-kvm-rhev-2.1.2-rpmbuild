@@ -1,0 +1,46 @@
+From a1a2b48196187e42304006db16831216f4b083af Mon Sep 17 00:00:00 2001
+From: Markus Armbruster <armbru@redhat.com>
+Date: Mon, 11 Aug 2014 07:54:47 +0200
+Subject: [PATCH 13/16] rhel: ICH9-LPC.memory-hotplug-support=off for machine types <= 7.0
+
+Message-id: <1407743689-13553-14-git-send-email-armbru@redhat.com>
+Patchwork-id: 60510
+O-Subject: [PATCH RHEV-7.1 qemu-kvm-rhev 13/15] rhel: ICH9-LPC.memory-hotplug-support=off for machine types <= 7.0
+Bugzilla: 1118665
+RH-Acked-by: Eduardo Habkost <ehabkost@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+
+Update RHEL compatibility properties for upstream commit 1f86218.
+
+Adding to PC_RHEL7_0_COMPAT even though only q35 types need it, just
+to stay close to upstream, which has it in PC_COMPAT_2_0.
+
+Signed-off-by: Markus Armbruster <armbru@redhat.com>
+---
+ include/hw/i386/pc.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ include/hw/i386/pc.h |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/include/hw/i386/pc.h b/include/hw/i386/pc.h
+index 032abfe..de0570c 100644
+--- a/include/hw/i386/pc.h
++++ b/include/hw/i386/pc.h
+@@ -549,6 +549,10 @@ bool e820_get_entry(int, uint32_t, uint64_t *, uint64_t *);
+             .property = "guest_announce",\
+             .value    = "off",\
+         },{\
++            .driver   = "ICH9-LPC",\
++            .property = "memory-hotplug-support",\
++            .value    = "off",\
++        },{\
+             .driver   = "PIIX4_PM",\
+             .property = "acpi-pci-hotplug-with-bridge-support",\
+             .value    = "off",\
+-- 
+1.7.1
+

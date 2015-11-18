@@ -1,0 +1,94 @@
+From 72cbce18206bd7f8b04b544716bd1666613c6595 Mon Sep 17 00:00:00 2001
+From: John Snow <jsnow@redhat.com>
+Date: Fri, 14 Nov 2014 22:07:24 +0100
+Subject: [PATCH 36/48] ide: move BM_STATUS bits to pci.[ch]
+
+Message-id: <1416002855-4964-10-git-send-email-jsnow@redhat.com>
+Patchwork-id: 62392
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH v2 09/20] ide: move BM_STATUS bits to pci.[ch]
+Bugzilla: 1024599
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+
+From: Paolo Bonzini <pbonzini@redhat.com>
+
+They are not used by AHCI, and should not be even available there.
+
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit 7e2648df86a36c063a34196b3bede0a13ebc6809)
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/ide/internal.h | 11 -----------
+ hw/ide/pci.c      |  4 ++++
+ hw/ide/pci.h      |  7 +++++++
+ 3 files changed, 11 insertions(+), 11 deletions(-)
+
+diff --git a/hw/ide/internal.h b/hw/ide/internal.h
+index b35e52c..f369b0b 100644
+--- a/hw/ide/internal.h
++++ b/hw/ide/internal.h
+@@ -484,10 +484,6 @@ struct IDEDevice {
+     uint64_t wwn;
+ };
+ 
+-#define BM_STATUS_DMAING 0x01
+-#define BM_STATUS_ERROR  0x02
+-#define BM_STATUS_INT    0x04
+-
+ /* FIXME These are not status register bits */
+ #define BM_STATUS_DMA_RETRY  0x08
+ #define BM_STATUS_PIO_RETRY  0x10
+@@ -495,13 +491,6 @@ struct IDEDevice {
+ #define BM_STATUS_RETRY_FLUSH 0x40
+ #define BM_STATUS_RETRY_TRIM 0x80
+ 
+-#define BM_MIGRATION_COMPAT_STATUS_BITS \
+-        (BM_STATUS_DMA_RETRY | BM_STATUS_PIO_RETRY | \
+-        BM_STATUS_RETRY_READ | BM_STATUS_RETRY_FLUSH)
+-
+-#define BM_CMD_START     0x01
+-#define BM_CMD_READ      0x08
+-
+ static inline IDEState *idebus_active_if(IDEBus *bus)
+ {
+     return bus->ifs + bus->unit;
+diff --git a/hw/ide/pci.c b/hw/ide/pci.c
+index 73267a4..0e82cab 100644
+--- a/hw/ide/pci.c
++++ b/hw/ide/pci.c
+@@ -33,6 +33,10 @@
+ 
+ #define BMDMA_PAGE_SIZE 4096
+ 
++#define BM_MIGRATION_COMPAT_STATUS_BITS \
++        (BM_STATUS_DMA_RETRY | BM_STATUS_PIO_RETRY | \
++        BM_STATUS_RETRY_READ | BM_STATUS_RETRY_FLUSH)
++
+ static void bmdma_start_dma(IDEDMA *dma, IDEState *s,
+                             BlockDriverCompletionFunc *dma_cb)
+ {
+diff --git a/hw/ide/pci.h b/hw/ide/pci.h
+index 2428275..517711f 100644
+--- a/hw/ide/pci.h
++++ b/hw/ide/pci.h
+@@ -3,6 +3,13 @@
+ 
+ #include <hw/ide/internal.h>
+ 
++#define BM_STATUS_DMAING 0x01
++#define BM_STATUS_ERROR  0x02
++#define BM_STATUS_INT    0x04
++
++#define BM_CMD_START     0x01
++#define BM_CMD_READ      0x08
++
+ typedef struct BMDMAState {
+     IDEDMA dma;
+     uint8_t cmd;
+-- 
+1.8.3.1
+

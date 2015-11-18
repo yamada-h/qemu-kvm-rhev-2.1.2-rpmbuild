@@ -1,0 +1,45 @@
+From c245de2751864ae4382678d782d4d533262aaaee Mon Sep 17 00:00:00 2001
+From: Amos Kong <akong@redhat.com>
+Date: Mon, 17 Nov 2014 13:13:54 +0100
+Subject: [PATCH 48/48] vhost-user: fix mmap offset calculation
+
+Message-id: <1416230034-3233-1-git-send-email-akong@redhat.com>
+Patchwork-id: 62410
+O-Subject: [RHEL-7.1 qemu-kvm-rhev PATCH] vhost-user: fix mmap offset calculation
+Bugzilla: 1159710
+RH-Acked-by: dgibson <dgibson@redhat.com>
+RH-Acked-by: Marcel Apfelbaum <marcel.a@redhat.com>
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+
+From: Michael S. Tsirkin <mst@redhat.com>
+
+qemu_get_ram_block_host_ptr should get ram_addr_t,
+vhost-user passes in GPA.
+That's very wrong.
+
+Reported-by: Linhaifeng <haifeng.lin@huawei.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+(cherry picked from commit d3f16ec887bb58b19eac94fcae139a39a7933e15)
+
+Signed-off-by: Amos Kong <akong@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/virtio/vhost-user.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/hw/virtio/vhost-user.c b/hw/virtio/vhost-user.c
+index 4e88d9c..aefe0bb 100644
+--- a/hw/virtio/vhost-user.c
++++ b/hw/virtio/vhost-user.c
+@@ -226,7 +226,7 @@ static int vhost_user_call(struct vhost_dev *dev, unsigned long int request,
+                 msg.memory.regions[fd_num].memory_size  = reg->memory_size;
+                 msg.memory.regions[fd_num].guest_phys_addr = reg->guest_phys_addr;
+                 msg.memory.regions[fd_num].mmap_offset = reg->userspace_addr -
+-                    (uintptr_t) qemu_get_ram_block_host_ptr(reg->guest_phys_addr);
++                    (uintptr_t) qemu_get_ram_block_host_ptr(ram_addr);
+                 assert(fd_num < VHOST_MEMORY_MAX_NREGIONS);
+                 fds[fd_num++] = fd;
+             }
+-- 
+1.8.3.1
+

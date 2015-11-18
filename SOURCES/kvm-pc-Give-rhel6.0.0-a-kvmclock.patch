@@ -1,0 +1,44 @@
+From 4b4cb7be021a48a3406e1f14c17d739a5c4a3453 Mon Sep 17 00:00:00 2001
+From: Miroslav Rezanina <mrezanin@redhat.com>
+Date: Wed, 31 Jul 2013 08:04:35 +0200
+Subject: [PATCH 044/212] pc: Give rhel6.0.0 a kvmclock
+
+Message-id: <1375201922-6794-10-git-send-email-armbru@redhat.com>
+Patchwork-id: 52817
+O-Subject: [RHEL-7 PATCH v3 09/15] pc: Give rhel6.0.0 a kvmclock
+Bugzilla: 983991
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Bandan Das <bsd@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+
+RHEL-6.0 inherited kvmclock from upstream qemu-kvm.  It later made its
+way into upstream qemu (commit 0ec329d), and we switched to it in
+RHEL-6.2 (commit 17ca2d2).
+
+Since kvmclock was new in upstream qemu, the commit took care to
+enable it only for new machine types.  Since it wasn't new in RHEL-6,
+the backport dropped that part.
+
+Drop it in RHEL-7, too.
+
+Signed-off-by: Markus Armbruster <armbru@redhat.com>
+---
+ hw/i386/pc_piix.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
+index c6e30e2..e4fbb08 100644
+--- a/hw/i386/pc_piix.c
++++ b/hw/i386/pc_piix.c
+@@ -1097,7 +1097,7 @@ static void pc_init_rhel600(MachineState *machine)
+ {
+     x86_cpu_compat_disable_kvm_features(FEAT_KVM, KVM_FEATURE_PV_EOI);
+     enable_compat_apic_id_mode();
+-    pc_init1(machine, 1, 0);
++    pc_init_rhel700(machine);
+ }
+ 
+ static QEMUMachine pc_machine_rhel600 = {
+-- 
+1.7.1
+

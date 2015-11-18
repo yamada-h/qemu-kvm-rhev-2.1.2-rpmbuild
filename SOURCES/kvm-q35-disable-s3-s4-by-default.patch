@@ -1,0 +1,44 @@
+From 5df10a6127a2c91a9c0413a9ad7645f4fd623b07 Mon Sep 17 00:00:00 2001
+Message-Id: <5df10a6127a2c91a9c0413a9ad7645f4fd623b07.1422041080.git.jen@redhat.com>
+In-Reply-To: <e9a31d3e36f51de5e70ce8ce26d344bdc21a7981.1422041080.git.jen@redhat.com>
+References: <e9a31d3e36f51de5e70ce8ce26d344bdc21a7981.1422041080.git.jen@redhat.com>
+From: Amit Shah <amit.shah@redhat.com>
+Date: Wed, 21 Jan 2015 17:23:03 -0500
+Subject: [CHANGE 4/4] q35: disable s3/s4 by default
+To: rhvirt-patches@redhat.com,
+    jen@redhat.com
+
+RH-Author: Amit Shah <amit.shah@redhat.com>
+Message-id: <d6917cb89b797acbdab832ca8a63c5cde1fcf137.1421859772.git.amit.shah@redhat.com>
+Patchwork-id: 63452
+O-Subject: [RHEL7.1 qemu-kvm-rhev PATCH 2/2] q35: disable s3/s4 by default
+Bugzilla: 1170533
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Igor Mammedov <imammedo@redhat.com>
+RH-Acked-by: Marcel Apfelbaum <marcel@redhat.com>
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+
+Signed-off-by: Amit Shah <amit.shah@redhat.com>
+Signed-off-by: Jeff E. Nelson <jen@redhat.com>
+---
+ hw/acpi/ich9.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/hw/acpi/ich9.c b/hw/acpi/ich9.c
+index 4bbb26c..d5fb064 100644
+--- a/hw/acpi/ich9.c
++++ b/hw/acpi/ich9.c
+@@ -365,8 +365,8 @@ void ich9_pm_add_properties(Object *obj, ICH9LPCPMRegs *pm, Error **errp)
+ {
+     static const uint32_t gpe0_len = ICH9_PMIO_GPE0_LEN;
+     pm->acpi_memory_hotplug.is_enabled = true;
+-    pm->disable_s3 = 0;
+-    pm->disable_s4 = 0;
++    pm->disable_s3 = 1;
++    pm->disable_s4 = 1;
+     pm->s4_val = 2;
+ 
+     object_property_add_uint32_ptr(obj, ACPI_PM_PROP_PM_IO_BASE,
+-- 
+2.1.0
+

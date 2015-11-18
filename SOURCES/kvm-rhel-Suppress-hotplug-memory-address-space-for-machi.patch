@@ -1,0 +1,54 @@
+From 00ed2929b78e1c01e8bd581d0bace0ab2fdeb189 Mon Sep 17 00:00:00 2001
+From: Markus Armbruster <armbru@redhat.com>
+Date: Mon, 11 Aug 2014 07:54:38 +0200
+Subject: [PATCH 04/16] rhel: Suppress hotplug memory address space for machine types <=7.0
+
+Message-id: <1407743689-13553-5-git-send-email-armbru@redhat.com>
+Patchwork-id: 60505
+O-Subject: [PATCH RHEV-7.1 qemu-kvm-rhev 04/15] rhel: Suppress hotplug memory address space for machine types <=7.0
+Bugzilla: 1118665
+RH-Acked-by: Eduardo Habkost <ehabkost@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+
+Update the RHEL machine types for upstream commit de268e1.
+
+Signed-off-by: Markus Armbruster <armbru@redhat.com>
+---
+ hw/i386/pc_piix.c | 1 +
+ hw/i386/pc_q35.c  | 1 +
+ 2 files changed, 2 insertions(+)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/i386/pc_piix.c |    1 +
+ hw/i386/pc_q35.c  |    1 +
+ 2 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
+index e23fb7f..e21eb72 100644
+--- a/hw/i386/pc_piix.c
++++ b/hw/i386/pc_piix.c
+@@ -955,6 +955,7 @@ static void pc_compat_rhel700(MachineState *machine)
+                                 CPUID_EXT2_RDTSCP);
+ 
+     smbios_legacy_mode = true;
++    has_reserved_memory = false;
+ }
+ 
+ /*
+diff --git a/hw/i386/pc_q35.c b/hw/i386/pc_q35.c
+index e433cb6..eb015aa 100644
+--- a/hw/i386/pc_q35.c
++++ b/hw/i386/pc_q35.c
+@@ -463,6 +463,7 @@ static void pc_q35_compat_rhel700(MachineState *machine)
+                                 CPUID_EXT2_RDTSCP);
+ 
+     smbios_legacy_mode = true;
++    has_reserved_memory = false;
+ }
+ 
+ static void pc_q35_init_rhel700(MachineState *machine)
+-- 
+1.7.1
+

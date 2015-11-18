@@ -1,0 +1,74 @@
+From 800c6850eff1379f2ab4e16d981331ac33293f0a Mon Sep 17 00:00:00 2001
+From: Amit Shah <amit.shah@redhat.com>
+Date: Tue, 19 Aug 2014 10:09:25 +0200
+Subject: [PATCH 3/4] virtio-serial: search for duplicate port names before adding new ports
+
+Message-id: <6842242e3480c50fb03017aedc73d193375f69b8.1408441426.git.amit.shah@redhat.com>
+Patchwork-id: 60625
+O-Subject: [PATCH qemu-kvm-rhev RHEV7.1 2/2] virtio-serial: search for duplicate port names before adding new ports
+Bugzilla: 1003432
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Amos Kong <akong@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+
+Before adding new ports to VirtIOSerial devices, check if there's a
+conflict in the 'name' parameter.  This ensures two virtserialports with
+identical names are not initialized.
+
+Reported-by: <mazhang@redhat.com>
+Signed-off-by: Amit Shah <amit.shah@redhat.com>
+Reviewed-by: Markus Armbruster <armbru@redhat.com>
+(cherry picked from commit d0a0bfe6729ef6044d76ea49fafa07e29fa598bd)
+Signed-off-by: Amit Shah <amit.shah@redhat.com>
+---
+ hw/char/virtio-serial-bus.c | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/char/virtio-serial-bus.c |   22 ++++++++++++++++++++++
+ 1 files changed, 22 insertions(+), 0 deletions(-)
+
+diff --git a/hw/char/virtio-serial-bus.c b/hw/char/virtio-serial-bus.c
+index 49a9867..3931085 100644
+--- a/hw/char/virtio-serial-bus.c
++++ b/hw/char/virtio-serial-bus.c
+@@ -56,6 +56,22 @@ static VirtIOSerialPort *find_port_by_vq(VirtIOSerial *vser, VirtQueue *vq)
+     return NULL;
+ }
+ 
++static VirtIOSerialPort *find_port_by_name(char *name)
++{
++    VirtIOSerial *vser;
++
++    QLIST_FOREACH(vser, &vserdevices.devices, next) {
++        VirtIOSerialPort *port;
++
++        QTAILQ_FOREACH(port, &vser->ports, next) {
++            if (!strcmp(port->name, name)) {
++                return port;
++            }
++        }
++    }
++    return NULL;
++}
++
+ static bool use_multiport(VirtIOSerial *vser)
+ {
+     VirtIODevice *vdev = VIRTIO_DEVICE(vser);
+@@ -855,6 +871,12 @@ static void virtser_port_device_realize(DeviceState *dev, Error **errp)
+         return;
+     }
+ 
++    if (find_port_by_name(port->name)) {
++        error_setg(errp, "virtio-serial-bus: A port already exists by name %s",
++                   port->name);
++        return;
++    }
++
+     if (port->id == VIRTIO_CONSOLE_BAD_ID) {
+         if (plugging_port0) {
+             port->id = 0;
+-- 
+1.7.1
+

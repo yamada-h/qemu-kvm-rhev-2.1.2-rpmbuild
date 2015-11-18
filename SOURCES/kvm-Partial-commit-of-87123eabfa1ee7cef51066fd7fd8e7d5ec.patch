@@ -1,0 +1,167 @@
+From ac8be144a43d647546bacafbf0ae52b0e3ca587a Mon Sep 17 00:00:00 2001
+From: Miroslav Rezanina <mrezanin@redhat.com>
+Date: Mon, 7 Jul 2014 09:24:19 +0200
+Subject: [PATCH 116/212] Partial commit of 87123eabfa1ee7cef51066fd7fd8e7d5ecd0419f block: optionally disable live block jobs
+
+Due to changes in qapi files rebase is not trivial and need to be checked by Jeff
+
+Adding this partial commit to allow easier rebase of following patches
+
+Mirek
+---
+ Makefile            |    6 ++++++
+ block/Makefile.objs |    2 ++
+ blockdev.c          |    7 +++++++
+ configure           |   13 +++++++++++++
+ 4 files changed, 28 insertions(+), 0 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 5c3878b..8ace246 100644
+--- a/Makefile
++++ b/Makefile
+@@ -2,6 +2,11 @@
+ 
+ # Always point to the root of the build tree (needs GNU make).
+ BUILD_DIR=$(CURDIR)
++# useful for passing ' ' and ',' into Makefile functional calls,
++# as these characters cannot be passed otherwise
++_empty :=  
++_space := $(_empty) $(_empty)
++_comma := ,
+ 
+ # All following code might depend on configuration variables
+ ifneq ($(wildcard config-host.mak),)
+@@ -291,6 +296,7 @@ clean:
+ 	rm -f trace/generated-tracers-dtrace.h*
+ 	rm -f $(foreach f,$(GENERATED_HEADERS),$(f) $(f)-timestamp)
+ 	rm -f $(foreach f,$(GENERATED_SOURCES),$(f) $(f)-timestamp)
++	rm -f $(foreach f,$(GENERATED_JSON_FILES),$(f) $(f)-timestamp)
+ 	rm -rf qapi-generated
+ 	rm -rf qga/qapi-generated
+ 	for d in $(ALL_SUBDIRS); do \
+diff --git a/block/Makefile.objs b/block/Makefile.objs
+index 908c966..e078f17 100644
+--- a/block/Makefile.objs
++++ b/block/Makefile.objs
+@@ -20,9 +20,11 @@ block-obj-$(CONFIG_GLUSTERFS) += gluster.o
+ block-obj-$(CONFIG_LIBSSH2) += ssh.o
+ endif
+ 
++ifeq ($(CONFIG_LIVE_BLOCK_OPS),y)
+ common-obj-y += stream.o
+ common-obj-y += commit.o
+ common-obj-y += mirror.o
++endif
+ common-obj-y += backup.o
+ 
+ iscsi.o-cflags     := $(LIBISCSI_CFLAGS)
+diff --git a/blockdev.c b/blockdev.c
+index 48bd9a3..eeecdf8 100644
+--- a/blockdev.c
++++ b/blockdev.c
+@@ -231,6 +231,8 @@ typedef struct {
+     BlockDriverState *bs;
+ } BDRVPutRefBH;
+ 
++/* right now, this is only used from block_job_cb() */
++#ifdef CONFIG_LIVE_BLOCK_OPS
+ static void bdrv_put_ref_bh(void *opaque)
+ {
+     BDRVPutRefBH *s = opaque;
+@@ -256,6 +258,7 @@ static void bdrv_put_ref_bh_schedule(BlockDriverState *bs)
+     s->bs = bs;
+     qemu_bh_schedule(s->bh);
+ }
++#endif
+ 
+ static int parse_block_error_action(const char *buf, bool is_read, Error **errp)
+ {
+@@ -994,6 +997,7 @@ void do_commit(Monitor *mon, const QDict *qdict)
+     }
+ }
+ 
++#ifdef CONFIG_LIVE_BLOCK_OPS
+ static void blockdev_do_action(int kind, void *data, Error **errp)
+ {
+     TransactionAction action;
+@@ -1545,6 +1549,7 @@ exit:
+         g_free(state);
+     }
+ }
++#endif
+ 
+ 
+ static void eject_device(BlockDriverState *bs, int force, Error **errp)
+@@ -1849,6 +1854,7 @@ void qmp_block_resize(bool has_device, const char *device,
+     }
+ }
+ 
++#ifdef CONFIG_LIVE_BLOCK_OPS
+ static void block_job_cb(void *opaque, int ret)
+ {
+     BlockDriverState *bs = opaque;
+@@ -2302,6 +2308,7 @@ void qmp_drive_mirror(const char *device, const char *target,
+         return;
+     }
+ }
++#endif
+ 
+ static BlockJob *find_block_job(const char *device)
+ {
+diff --git a/configure b/configure
+index f552374..c9118b1 100755
+--- a/configure
++++ b/configure
+@@ -333,8 +333,10 @@ tpm="yes"
+ libssh2=""
+ vhdx=""
+ quorum=""
++live_block_ops="yes"
+ numa=""
+ 
++
+ # parse CC options first
+ for opt do
+   optarg=`expr "x$opt" : 'x[^=]*=\(.*\)'`
+@@ -1116,6 +1118,10 @@ for opt do
+   ;;
+   --enable-quorum) quorum="yes"
+   ;;
++  --disable-live-block-ops) live_block_ops="no"
++  ;;
++  --enable-live-block-ops) live_block_ops="yes"
++  ;;
+   --disable-numa) numa="no"
+   ;;
+   --enable-numa) numa="yes"
+@@ -1386,6 +1392,8 @@ Advanced options (experts only):
+   --enable-vhdx            enable support for the Microsoft VHDX image format
+   --disable-quorum         disable quorum block filter support
+   --enable-quorum          enable quorum block filter support
++  --disable-live-block-ops disable live block operations support
++  --enable-live-block-ops  enable live block operations support
+   --disable-numa           disable libnuma support
+   --enable-numa            enable libnuma support
+ 
+@@ -4228,6 +4236,7 @@ echo "vhdx              $vhdx"
+ echo "Quorum            $quorum"
+ echo "lzo support       $lzo"
+ echo "snappy support    $snappy"
++echo "Live block operations $live_block_ops"
+ echo "NUMA host support $numa"
+ 
+ if test "$sdl_too_old" = "yes"; then
+@@ -4668,6 +4677,10 @@ if test "$vhdx" = "yes" ; then
+   echo "CONFIG_VHDX=y" >> $config_host_mak
+ fi
+ 
++if test "$live_block_ops" = "yes" ; then
++  echo "CONFIG_LIVE_BLOCK_OPS=y" >> $config_host_mak
++fi
++
+ # USB host support
+ if test "$libusb" = "yes"; then
+   echo "HOST_USB=libusb legacy" >> $config_host_mak
+-- 
+1.7.1
+

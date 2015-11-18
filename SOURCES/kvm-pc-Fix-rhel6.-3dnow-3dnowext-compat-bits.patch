@@ -1,0 +1,63 @@
+From 7defeeedca3339356ccfd2fa3576165d6667e694 Mon Sep 17 00:00:00 2001
+From: Eduardo Habkost <ehabkost@redhat.com>
+Date: Wed, 15 Jan 2014 19:37:36 -0500
+Subject: [PATCH 159/212] pc: Fix rhel6.* 3dnow & 3dnowext compat bits
+
+Message-id: <1389814656-20101-1-git-send-email-ehabkost@redhat.com>
+Patchwork-id: 56728
+O-Subject: [RHEL-7 qemu-kvm PATCH] pc: Fix rhel6.* 3dnow & 3dnowext compat bits
+Bugzilla: 918907
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Bandan Das <bsd@redhat.com>
+
+Bugzilla: 918907
+Upstream status: not applicable
+Brew scratch build: http://brewweb.devel.redhat.com/brew/taskinfo?taskID=6879262
+
+RHEL-6 qemu-kvm has a hack that unconditionally disables 3dnow and
+3dnowext on the CPUID handling code. To keep compatibility we need to do
+the same on the rhel6.* machine-types.
+
+The hack on RHEL-6 is at target-i386/cpuid.c:cpu_x86_cpuid():
+
+    switch(index) {
+    [...]
+    case 0x80000001:
+        [...]
+        if (kvm_enabled()) {
+            [...]
+            /* 3dnow */
+            *edx &= ~0xc0000000;
+        } [...]
+
+Signed-off-by: Eduardo Habkost <ehabkost@redhat.com>
+---
+ hw/i386/pc_piix.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/i386/pc_piix.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
+
+diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
+index 3b28360..e3f217e 100644
+--- a/hw/i386/pc_piix.c
++++ b/hw/i386/pc_piix.c
+@@ -1080,8 +1080,11 @@ static void pc_init_rhel650(MachineState *machine)
+     x86_cpu_compat_set_features("Opteron_G3", FEAT_8000_0001_EDX,
+                                 0, CPUID_EXT2_RDTSCP);
+ 
+-    x86_cpu_compat_disable_kvm_features(FEAT_KVM, KVM_FEATURE_PV_UNHALT);
++    /* RHEL-6 had 3dnow & 3dnowext unconditionally disabled on all models */
++    x86_cpu_compat_set_features(NULL, FEAT_8000_0001_EDX, 0,
++                                CPUID_EXT2_3DNOW | CPUID_EXT2_3DNOWEXT);
+ 
++    x86_cpu_compat_disable_kvm_features(FEAT_KVM, KVM_FEATURE_PV_UNHALT);
+     pc_init_rhel700(machine);
+ }
+ 
+-- 
+1.7.1
+

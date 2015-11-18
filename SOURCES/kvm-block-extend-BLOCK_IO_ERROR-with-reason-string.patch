@@ -1,0 +1,81 @@
+From 1932973b22bf43ce8dde470691d9d34199340c2b Mon Sep 17 00:00:00 2001
+From: Luiz Capitulino <lcapitulino@redhat.com>
+Date: Fri, 3 Oct 2014 13:29:35 +0200
+Subject: [PATCH 13/13] block: extend BLOCK_IO_ERROR with reason string
+
+Message-id: <1412342975-4060-3-git-send-email-lcapitulino@redhat.com>
+Patchwork-id: 61562
+O-Subject: [RHEV7.1 qemu-kvm-rhev PATCH 2/2] block: extend BLOCK_IO_ERROR with reason string
+Bugzilla: 1117445
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+RH-Acked-by: Eric Blake <eblake@redhat.com>
+
+BLOCK_IO_ERROR events are logged by libvirt, which helps with
+post mortem analysis of guests. However, one information that
+we miss today is a human readable string describing the cause
+of the I/O error.
+
+This commit adds that string it to BLOCK_IO_ERROR. Note that
+this string is a debugging aid for humans, meaning that it
+should not parsed by applications.
+
+Signed-off-by: Luiz Capitulino <lcapitulino@redhat.com>
+Reviewed-by: Eric Blake <eblake@redhat.com>
+Signed-off-by: Kevin Wolf <kwolf@redhat.com>
+(cherry picked from commit 624ff5736ef9245bb8070400ccaf65857b6d1c38)
+Signed-off-by: Luiz Capitulino <lcapitulino@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+
+Conflicts:
+	block.c
+	qapi/block-core.json
+
+RHEL-note: The conflicts are caused because of RHEL-only commits
+           b98cebf499e7 and 6b89c9171cc2.
+---
+ block.c              | 4 ++--
+ qapi/block-core.json | 5 +++++
+ 2 files changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/block.c b/block.c
+index ad9ada8..8da95f3 100644
+--- a/block.c
++++ b/block.c
+@@ -3629,8 +3629,8 @@ static void send_qmp_error_event(BlockDriverState *bs,
+     ac = is_read ? IO_OPERATION_TYPE_READ : IO_OPERATION_TYPE_WRITE;
+     qapi_event_send_block_io_error(bdrv_get_device_name(bs), ac, action,
+                                    bdrv_iostatus_is_enabled(bs),
+-                                   error == ENOSPC, res, info,
+-                                   &error_abort);
++                                   error == ENOSPC, strerror(error),
++								   res, info, &error_abort);
+ }
+ 
+ /* This is done by device models because, while the block layer knows
+diff --git a/qapi/block-core.json b/qapi/block-core.json
+index 612b3b1..a413b66 100644
+--- a/qapi/block-core.json
++++ b/qapi/block-core.json
+@@ -1557,6 +1557,10 @@
+ #           io-status is present, please see query-block documentation
+ #           for more information (since: 2.2)
+ #
++# @reason: human readable string describing the error cause.
++#          (This field is a debugging aid for humans, it should not
++#           be parsed by applications) (since: 2.2)
++#
+ # @__com.redhat_reason: error reason (RHEL7 vendor extension)
+ #
+ # @__com.redhat_debug_info: debug information for humans, applications
+@@ -1571,6 +1575,7 @@
+ { 'event': 'BLOCK_IO_ERROR',
+   'data': { 'device': 'str', 'operation': 'IoOperationType',
+             'action': 'BlockErrorAction', '*nospace': 'bool',
++            'reason': 'str',
+             '__com.redhat_reason': 'RHEL7BlockErrorReason',
+             '__com.redhat_debug_info': 'RHEL7BlockErrorDebugInfo' } }
+ 
+-- 
+1.8.3.1
+

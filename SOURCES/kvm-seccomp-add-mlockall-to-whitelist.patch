@@ -1,0 +1,42 @@
+From e9a31d3e36f51de5e70ce8ce26d344bdc21a7981 Mon Sep 17 00:00:00 2001
+Message-Id: <e9a31d3e36f51de5e70ce8ce26d344bdc21a7981.1422041080.git.jen@redhat.com>
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Wed, 21 Jan 2015 14:37:16 -0500
+Subject: [CHANGE 1/4] seccomp: add mlockall to whitelist
+To: rhvirt-patches@redhat.com,
+    jen@redhat.com
+
+RH-Author: Paolo Bonzini <pbonzini@redhat.com>
+Message-id: <1421851036-1282-1-git-send-email-pbonzini@redhat.com>
+Patchwork-id: 63440
+O-Subject: [RHEL7.1 qemu-kvm-rhev PATCH] seccomp: add mlockall to whitelist
+Bugzilla: 1182494
+RH-Acked-by: Amit Shah <amit.shah@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Bandan Das <bsd@redhat.com>
+
+Upstream status: posted, acked
+
+This is used by "-realtime mlock=on".
+
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+Signed-off-by: Jeff E. Nelson <jen@redhat.com>
+---
+ qemu-seccomp.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/qemu-seccomp.c b/qemu-seccomp.c
+index 0503764..2ccbcb2 100644
+--- a/qemu-seccomp.c
++++ b/qemu-seccomp.c
+@@ -229,6 +229,7 @@ static const struct QemuSeccompSyscall seccomp_whitelist[] = {
+     { SCMP_SYS(shmdt), 240 },
+     { SCMP_SYS(timerfd_create), 240 },
+     { SCMP_SYS(shmctl), 240 },
++    { SCMP_SYS(mlockall), 240 },
+     { SCMP_SYS(mlock), 240 },
+     { SCMP_SYS(munlock), 240 },
+     { SCMP_SYS(semctl), 240 }
+-- 
+2.1.0
+

@@ -1,0 +1,104 @@
+From debe1183380cb81bfea296a96b7f473bf8cf1002 Mon Sep 17 00:00:00 2001
+From: Eduardo Habkost <ehabkost@redhat.com>
+Date: Thu, 19 Feb 2015 17:08:27 +0100
+Subject: [PATCH 2/2] pc: add rhel6.6.0 machine type
+
+Message-id: <1424365707-27850-1-git-send-email-ehabkost@redhat.com>
+Patchwork-id: 63900
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH] pc: add rhel6.6.0 machine type
+Bugzilla: 1194552
+RH-Acked-by: Bandan Das <bsd@redhat.com>
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+
+From: Paolo Bonzini <pbonzini@redhat.com>
+
+This enables migration from RHOSP5 to RHOSP6.
+
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+Signed-off-by: Eduardo Habkost <ehabkost@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/i386/pc_piix.c | 40 ++++++++++++++++++++++++++++++++++------
+ 1 file changed, 34 insertions(+), 6 deletions(-)
+
+diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
+index 656dc59..0384ba3 100644
+--- a/hw/i386/pc_piix.c
++++ b/hw/i386/pc_piix.c
+@@ -1008,7 +1008,7 @@ static QEMUMachine pc_machine_rhel700 = {
+     },
+ };
+ 
+-#define PC_RHEL6_5_COMPAT \
++#define PC_RHEL6_6_COMPAT \
+     PC_RHEL7_0_COMPAT,\
+     {\
+         .driver   = "scsi-hd",\
+@@ -1120,16 +1120,12 @@ static QEMUMachine pc_machine_rhel700 = {
+         .property = "romfile",\
+         .value    = "rhel6-virtio.rom",\
+     },{\
+-        .driver   = TYPE_USB_DEVICE,\
+-        .property = "msos-desc",\
+-        .value    = "no",\
+-    },{\
+         .driver   = "virtio-net-pci",\
+         .property = "any_layout",\
+         .value    = "off",\
+     }
+ 
+-static void pc_compat_rhel650(MachineState *machine)
++static void pc_compat_rhel660(MachineState *machine)
+ {
+     pc_compat_rhel700(machine);
+     if (!machine->cpu_model) {
+@@ -1177,6 +1173,37 @@ static void pc_compat_rhel650(MachineState *machine)
+     ich9_uhci123_irqpin_override = true;
+ }
+ 
++static void pc_init_rhel660(MachineState *machine)
++{
++    pc_compat_rhel660(machine);
++    pc_init_pci(machine);
++}
++
++static QEMUMachine pc_machine_rhel660 = {
++    PC_DEFAULT_MACHINE_OPTIONS,
++    .family = "pc_piix_Z",
++    .name = "rhel6.6.0",
++    .desc = "RHEL 6.6.0 PC",
++    .init = pc_init_rhel660,
++    .compat_props = (GlobalProperty[]) {
++        PC_RHEL6_6_COMPAT,
++        { /* end of list */ }
++    },
++};
++
++#define PC_RHEL6_5_COMPAT \
++    PC_RHEL6_6_COMPAT,\
++    {\
++        .driver   = TYPE_USB_DEVICE,\
++        .property = "msos-desc",\
++        .value    = "no",\
++    }
++
++static void pc_compat_rhel650(MachineState *machine)
++{
++    pc_compat_rhel660(machine);
++}
++
+ static void pc_init_rhel650(MachineState *machine)
+ {
+     pc_compat_rhel650(machine);
+@@ -1464,6 +1491,7 @@ static void rhel_machine_init(void)
+ {
+     qemu_register_pc_machine(&pc_machine_rhel710);
+     qemu_register_pc_machine(&pc_machine_rhel700);
++    qemu_register_pc_machine(&pc_machine_rhel660);
+     qemu_register_pc_machine(&pc_machine_rhel650);
+     qemu_register_pc_machine(&pc_machine_rhel640);
+     qemu_register_pc_machine(&pc_machine_rhel630);
+-- 
+1.8.3.1
+

@@ -1,0 +1,47 @@
+From cfd0d7baf60906e5d078ea427585d7d0477e6cf9 Mon Sep 17 00:00:00 2001
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Date: Tue, 7 Apr 2015 16:29:36 +0200
+Subject: [PATCH] block: Fix max nb_sectors in bdrv_make_zero
+
+Message-id: <1428424176-9478-2-git-send-email-stefanha@redhat.com>
+Patchwork-id: 64729
+O-Subject: [RHEV-7.1.z qemu-kvm PATCH 1/1] block: Fix max nb_sectors in bdrv_make_zero
+Bugzilla: 1203543
+RH-Acked-by: John Snow <jsnow@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Kevin Wolf <kwolf@redhat.com>
+
+From: Fam Zheng <famz@redhat.com>
+
+In bdrv_rw_co we report -EINVAL for nb_sectors > INT_MAX /
+BDRV_SECTOR_SIZE, so a caller shouldn't exceed it.
+
+Signed-off-by: Fam Zheng <famz@redhat.com>
+Reviewed-by: Markus Armbruster <armbru@redhat.com>
+Message-id: 1415603264-21497-1-git-send-email-famz@redhat.com
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit f3a9cfddaec127078ac1898de6b063db8ac3bb48)
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ block.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/block.c b/block.c
+index 9f68b55..13d28d8 100644
+--- a/block.c
++++ b/block.c
+@@ -2840,8 +2840,8 @@ int bdrv_make_zero(BlockDriverState *bs, BdrvRequestFlags flags)
+         if (nb_sectors <= 0) {
+             return 0;
+         }
+-        if (nb_sectors > INT_MAX) {
+-            nb_sectors = INT_MAX;
++        if (nb_sectors > INT_MAX / BDRV_SECTOR_SIZE) {
++            nb_sectors = INT_MAX / BDRV_SECTOR_SIZE;
+         }
+         ret = bdrv_get_block_status(bs, sector_num, nb_sectors, &n);
+         if (ret < 0) {
+-- 
+1.8.3.1
+

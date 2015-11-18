@@ -1,0 +1,235 @@
+From aee4d7c98d8f93dcc8e8effa9f292d8d87b60444 Mon Sep 17 00:00:00 2001
+From: "Dr. David Alan Gilbert" <dgilbert@redhat.com>
+Date: Thu, 30 Jul 2015 12:07:58 +0200
+Subject: [PATCH 07/13] Rework ram_control_load_hook to hook during block load
+
+Message-id: <1438258084-15753-8-git-send-email-dgilbert@redhat.com>
+Patchwork-id: 67211
+O-Subject: [RHEL-7.1.Z qemu-kvm-rhev PATCH 07/13] Rework ram_control_load_hook to hook during block load
+Bugzilla: 1248382
+RH-Acked-by: Marcel Apfelbaum <marcel@redhat.com>
+RH-Acked-by: Amit Shah <amit.shah@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+
+From: "Dr. David Alan Gilbert" <dgilbert@redhat.com>
+
+We need the names of RAMBlocks as they're loaded for RDMA,
+reuse a slightly modified ram_control_load_hook:
+  a) Pass a 'data' parameter to use for the name in the block-reg
+     case
+  b) Only some hook types now require the presence of a hook function.
+
+Signed-off-by: Dr. David Alan Gilbert <dgilbert@redhat.com>
+Signed-off-by: Juan Quintela <quintela@redhat.com>
+(cherry picked from commit 632e3a5cd812d6bbd38fd2f3ffc189ff5ea51926)
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+
+Conflicts:
+	arch_init.c
+	migration-rdma.c
+	trace-events
+---
+ arch_init.c                   |  4 +++-
+ include/migration/migration.h |  2 +-
+ include/migration/qemu-file.h | 14 +++++++++-----
+ migration-rdma.c              | 28 ++++++++++++++++++++++------
+ qemu-file.c                   | 16 +++++++++++-----
+ trace-events                  |  1 +
+ 6 files changed, 47 insertions(+), 18 deletions(-)
+
+diff --git a/arch_init.c b/arch_init.c
+index ef246be..bcc444a 100644
+--- a/arch_init.c
++++ b/arch_init.c
+@@ -1087,6 +1087,8 @@ static int ram_load(QEMUFile *f, void *opaque, int version_id)
+                                          block->length);
+                             ret =  -EINVAL;
+                         }
++                        ram_control_load_hook(f, RAM_CONTROL_BLOCK_REG,
++                                              block->idstr);
+                         break;
+                     }
+                 }
+@@ -1141,7 +1143,7 @@ static int ram_load(QEMUFile *f, void *opaque, int version_id)
+                 break;
+             }
+         } else if (flags & RAM_SAVE_FLAG_HOOK) {
+-            ram_control_load_hook(f, flags);
++            ram_control_load_hook(f, RAM_CONTROL_HOOK, NULL);
+         } else if (flags & RAM_SAVE_FLAG_EOS) {
+             /* normal exit */
+             break;
+diff --git a/include/migration/migration.h b/include/migration/migration.h
+index 3cb5ba8..f431c39 100644
+--- a/include/migration/migration.h
++++ b/include/migration/migration.h
+@@ -158,7 +158,7 @@ int64_t xbzrle_cache_resize(int64_t new_size);
+ 
+ void ram_control_before_iterate(QEMUFile *f, uint64_t flags);
+ void ram_control_after_iterate(QEMUFile *f, uint64_t flags);
+-void ram_control_load_hook(QEMUFile *f, uint64_t flags);
++void ram_control_load_hook(QEMUFile *f, uint64_t flags, void *data);
+ 
+ /* Whenever this is found in the data stream, the flags
+  * will be passed to ram_control_load_hook in the incoming-migration
+diff --git a/include/migration/qemu-file.h b/include/migration/qemu-file.h
+index c90f529..5c3fb0c 100644
+--- a/include/migration/qemu-file.h
++++ b/include/migration/qemu-file.h
+@@ -61,16 +61,20 @@ typedef ssize_t (QEMUFileWritevBufferFunc)(void *opaque, struct iovec *iov,
+ /*
+  * This function provides hooks around different
+  * stages of RAM migration.
++ * 'opaque' is the backend specific data in QEMUFile
++ * 'data' is call specific data associated with the 'flags' value
+  */
+-typedef int (QEMURamHookFunc)(QEMUFile *f, void *opaque, uint64_t flags);
++typedef int (QEMURamHookFunc)(QEMUFile *f, void *opaque, uint64_t flags,
++                              void *data);
+ 
+ /*
+  * Constants used by ram_control_* hooks
+  */
+-#define RAM_CONTROL_SETUP    0
+-#define RAM_CONTROL_ROUND    1
+-#define RAM_CONTROL_HOOK     2
+-#define RAM_CONTROL_FINISH   3
++#define RAM_CONTROL_SETUP     0
++#define RAM_CONTROL_ROUND     1
++#define RAM_CONTROL_HOOK      2
++#define RAM_CONTROL_FINISH    3
++#define RAM_CONTROL_BLOCK_REG 4
+ 
+ /*
+  * This function allows override of where the RAM page
+diff --git a/migration-rdma.c b/migration-rdma.c
+index 31ab404..cc76133 100644
+--- a/migration-rdma.c
++++ b/migration-rdma.c
+@@ -2969,8 +2969,7 @@ err_rdma_dest_wait:
+  *
+  * Keep doing this until the source tells us to stop.
+  */
+-static int qemu_rdma_registration_handle(QEMUFile *f, void *opaque,
+-                                         uint64_t flags)
++static int qemu_rdma_registration_handle(QEMUFile *f, void *opaque)
+ {
+     RDMAControlHeader reg_resp = { .len = sizeof(RDMARegisterResult),
+                                .type = RDMA_CONTROL_REGISTER_RESULT,
+@@ -3000,7 +2999,7 @@ static int qemu_rdma_registration_handle(QEMUFile *f, void *opaque,
+     CHECK_ERROR_STATE();
+ 
+     do {
+-        DDDPRINTF("Waiting for next request %" PRIu64 "...\n", flags);
++        trace_qemu_rdma_registration_handle_wait();
+ 
+         ret = qemu_rdma_exchange_recv(rdma, &head, RDMA_CONTROL_NONE);
+ 
+@@ -3191,8 +3190,25 @@ out:
+     return ret;
+ }
+ 
++static int rdma_load_hook(QEMUFile *f, void *opaque, uint64_t flags, void *data)
++{
++    switch (flags) {
++    case RAM_CONTROL_BLOCK_REG:
++        /* TODO A later patch */
++        return 0;
++        break;
++
++    case RAM_CONTROL_HOOK:
++        return qemu_rdma_registration_handle(f, opaque);
++
++    default:
++        /* Shouldn't be called with any other values */
++        abort();
++    }
++}
++
+ static int qemu_rdma_registration_start(QEMUFile *f, void *opaque,
+-                                        uint64_t flags)
++                                        uint64_t flags, void *data)
+ {
+     QEMUFileRDMA *rfile = opaque;
+     RDMAContext *rdma = rfile->rdma;
+@@ -3211,7 +3227,7 @@ static int qemu_rdma_registration_start(QEMUFile *f, void *opaque,
+  * First, flush writes, if any.
+  */
+ static int qemu_rdma_registration_stop(QEMUFile *f, void *opaque,
+-                                       uint64_t flags)
++                                       uint64_t flags, void *data)
+ {
+     Error *local_err = NULL, **errp = &local_err;
+     QEMUFileRDMA *rfile = opaque;
+@@ -3333,7 +3349,7 @@ const QEMUFileOps rdma_read_ops = {
+     .get_buffer    = qemu_rdma_get_buffer,
+     .get_fd        = qemu_rdma_get_fd,
+     .close         = qemu_rdma_close,
+-    .hook_ram_load = qemu_rdma_registration_handle,
++    .hook_ram_load = rdma_load_hook,
+ };
+ 
+ const QEMUFileOps rdma_write_ops = {
+diff --git a/qemu-file.c b/qemu-file.c
+index a8e3912..f2524b6 100644
+--- a/qemu-file.c
++++ b/qemu-file.c
+@@ -476,7 +476,7 @@ void ram_control_before_iterate(QEMUFile *f, uint64_t flags)
+     int ret = 0;
+ 
+     if (f->ops->before_ram_iterate) {
+-        ret = f->ops->before_ram_iterate(f, f->opaque, flags);
++        ret = f->ops->before_ram_iterate(f, f->opaque, flags, NULL);
+         if (ret < 0) {
+             qemu_file_set_error(f, ret);
+         }
+@@ -488,24 +488,30 @@ void ram_control_after_iterate(QEMUFile *f, uint64_t flags)
+     int ret = 0;
+ 
+     if (f->ops->after_ram_iterate) {
+-        ret = f->ops->after_ram_iterate(f, f->opaque, flags);
++        ret = f->ops->after_ram_iterate(f, f->opaque, flags, NULL);
+         if (ret < 0) {
+             qemu_file_set_error(f, ret);
+         }
+     }
+ }
+ 
+-void ram_control_load_hook(QEMUFile *f, uint64_t flags)
++void ram_control_load_hook(QEMUFile *f, uint64_t flags, void *data)
+ {
+     int ret = -EINVAL;
+ 
+     if (f->ops->hook_ram_load) {
+-        ret = f->ops->hook_ram_load(f, f->opaque, flags);
++        ret = f->ops->hook_ram_load(f, f->opaque, flags, data);
+         if (ret < 0) {
+             qemu_file_set_error(f, ret);
+         }
+     } else {
+-        qemu_file_set_error(f, ret);
++        /*
++         * Hook is a hook specifically requested by the source sending a flag
++         * that expects there to be a hook on the destination.
++         */
++        if (flags == RAM_CONTROL_HOOK) {
++            qemu_file_set_error(f, ret);
++        }
+     }
+ }
+ 
+diff --git a/trace-events b/trace-events
+index 7313458..c1a8b6c 100644
+--- a/trace-events
++++ b/trace-events
+@@ -1252,6 +1252,7 @@ migrate_transferred(uint64_t tranferred, uint64_t time_spent, double bandwidth,
+ 
+ # migration-rdma.c
+ rdma_add_block(const char *block_name, int block, uint64_t addr, uint64_t offset, uint64_t len, uint64_t end, uint64_t bits, int chunks) "Added Block: '%s':%d, addr: %" PRIu64 ", offset: %" PRIu64 " length: %" PRIu64 " end: %" PRIu64 " bits %" PRIu64 " chunks %d"
++qemu_rdma_registration_handle_wait(void) ""
+ 
+ # kvm-all.c
+ kvm_ioctl(int type, void *arg) "type 0x%x, arg %p"
+-- 
+1.8.3.1
+

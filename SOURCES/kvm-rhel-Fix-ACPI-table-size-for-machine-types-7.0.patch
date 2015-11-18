@@ -1,0 +1,43 @@
+From f00a8280b576b874731e924f8ce1af28bb38808c Mon Sep 17 00:00:00 2001
+From: Markus Armbruster <armbru@redhat.com>
+Date: Mon, 11 Aug 2014 07:54:39 +0200
+Subject: [PATCH 05/16] rhel: Fix ACPI table size for machine types <=7.0
+
+Message-id: <1407743689-13553-6-git-send-email-armbru@redhat.com>
+Patchwork-id: 60511
+O-Subject: [PATCH RHEV-7.1 qemu-kvm-rhev 05/15] rhel: Fix ACPI table size for machine types <=7.0
+Bugzilla: 1118665
+RH-Acked-by: Eduardo Habkost <ehabkost@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+
+Update the RHEL i440fx machine types for upstream commit 07fb617.
+
+The upstream commit does not cover q35 types "since QEMU 2.0 didn't
+support Q35 migration."  RHEL follows suit.
+
+Signed-off-by: Markus Armbruster <armbru@redhat.com>
+---
+ hw/i386/pc_piix.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/i386/pc_piix.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
+index e21eb72..40d13fe 100644
+--- a/hw/i386/pc_piix.c
++++ b/hw/i386/pc_piix.c
+@@ -954,6 +954,7 @@ static void pc_compat_rhel700(MachineState *machine)
+     x86_cpu_compat_set_features("Opteron_G5", FEAT_8000_0001_EDX, 0,
+                                 CPUID_EXT2_RDTSCP);
+ 
++    legacy_acpi_table_size = 6418; /* see pc_compat_2_0() */
+     smbios_legacy_mode = true;
+     has_reserved_memory = false;
+ }
+-- 
+1.7.1
+

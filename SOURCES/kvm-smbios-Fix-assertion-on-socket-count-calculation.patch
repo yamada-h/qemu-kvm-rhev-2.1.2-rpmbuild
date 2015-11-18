@@ -1,0 +1,54 @@
+From 3fda73eca273d0c51392e8a6e662a4252fb76cb3 Mon Sep 17 00:00:00 2001
+From: Eduardo Habkost <ehabkost@redhat.com>
+Date: Tue, 4 Nov 2014 01:37:16 +0100
+Subject: [PATCH 03/15] smbios: Fix assertion on socket count calculation
+
+Message-id: <1415065036-5466-1-git-send-email-ehabkost@redhat.com>
+Patchwork-id: 62053
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH] smbios: Fix assertion on socket count calculation
+Bugzilla: 1146573
+RH-Acked-by: Gerd Hoffmann <kraxel@redhat.com>
+RH-Acked-by: wei@redhat.com
+RH-Acked-by: Amos Kong <akong@redhat.com>
+
+QEMU currently allows the number of VCPUs to not be a multiple of the
+number of threads per socket, but the smbios socket count calculation
+introduced by commit c97294ec1b9e36887e119589d456557d72ab37b5 doesn't
+take that into account, triggering an assertion. e.g.:
+
+  $ ./x86_64-softmmu/qemu-system-x86_64 -smp 4,sockets=2,cores=6,threads=1
+  qemu-system-x86_64: /home/ehabkost/rh/proj/virt/qemu/hw/i386/smbios.c:825: smbios_get_tables: Assertion `smbios_smp_sockets >= 1' failed.
+  Aborted (core dumped)
+
+Socket count calculation doesn't belong to smbios.c and should
+eventually be moved to the main SMP topology configuration code. But
+while we don't move the code, at least make it correct by rounding up
+the division.
+
+Signed-off-by: Eduardo Habkost <ehabkost@redhat.com>
+Reviewed-By: Igor Mammedov <imammedo@redhat.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+(cherry picked from commit 7dfddd7f884b6dd2abf230d8fa6c7c83aab4f5ec)
+Signed-off-by: Eduardo Habkost <ehabkost@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/i386/smbios.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/hw/i386/smbios.c b/hw/i386/smbios.c
+index 5bf97a1..b875be3 100644
+--- a/hw/i386/smbios.c
++++ b/hw/i386/smbios.c
+@@ -822,7 +822,7 @@ void smbios_get_tables(uint8_t **tables, size_t *tables_len,
+         smbios_build_type_2_table();
+         smbios_build_type_3_table();
+ 
+-        smbios_smp_sockets = smp_cpus / (smp_cores * smp_threads);
++        smbios_smp_sockets = DIV_ROUND_UP(smp_cpus, smp_cores * smp_threads);
+         assert(smbios_smp_sockets >= 1);
+ 
+         for (i = 0; i < smbios_smp_sockets; i++) {
+-- 
+1.8.3.1
+

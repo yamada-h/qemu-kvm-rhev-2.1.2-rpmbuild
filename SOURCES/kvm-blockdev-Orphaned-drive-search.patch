@@ -1,0 +1,136 @@
+From 89719ccecee200cf21fb24138cf2e12148456017 Mon Sep 17 00:00:00 2001
+From: John Snow <jsnow@redhat.com>
+Date: Tue, 7 Oct 2014 10:52:19 +0200
+Subject: [PATCH 01/21] blockdev: Orphaned drive search
+
+Message-id: <1412679144-17302-2-git-send-email-jsnow@redhat.com>
+Patchwork-id: 61597
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH 1/6] blockdev: Orphaned drive search
+Bugzilla: 946993
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+
+When users use command line options like -hda, -cdrom,
+or even -drive if=ide, it is up to the board initialization
+routines to pick up these drives and create backing
+devices for them.
+
+Some boards, like Q35, have not been doing this.
+However, there is no warning explaining why certain
+drive specifications are just silently ignored,
+so this function adds a check to print some warnings
+to assist users in debugging these sorts of issues
+in the future.
+
+This patch will not warn about drives added with if_none,
+for which it is not possible to tell in advance if
+the omission of a backing device is an issue.
+
+A warning in these cases is considered appropriate.
+
+Signed-off-by: John Snow <jsnow@redhat.com>
+Reviewed-by: Markus Armbruster <armbru@redhat.com>
+Message-id: 1412187569-23452-2-git-send-email-jsnow@redhat.com
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit a66c9dc734fb30de1e18e9dc217f2d37e16c492a)
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ blockdev.c                | 21 +++++++++++++++++++++
+ include/sysemu/blockdev.h |  2 ++
+ vl.c                      | 10 +++++++++-
+ 3 files changed, 32 insertions(+), 1 deletion(-)
+
+diff --git a/blockdev.c b/blockdev.c
+index 8211e2a..85e6a07 100644
+--- a/blockdev.c
++++ b/blockdev.c
+@@ -165,6 +165,27 @@ DriveInfo *drive_get(BlockInterfaceType type, int bus, int unit)
+     return NULL;
+ }
+ 
++bool drive_check_orphaned(void)
++{
++    DriveInfo *dinfo;
++    bool rs = false;
++
++    QTAILQ_FOREACH(dinfo, &drives, next) {
++        /* If dinfo->bdrv->dev is NULL, it has no device attached. */
++        /* Unless this is a default drive, this may be an oversight. */
++        if (!dinfo->bdrv->dev && !dinfo->is_default &&
++            dinfo->type != IF_NONE) {
++            fprintf(stderr, "Warning: Orphaned drive without device: "
++                    "id=%s,file=%s,if=%s,bus=%d,unit=%d\n",
++                    dinfo->id, dinfo->bdrv->filename, if_name[dinfo->type],
++                    dinfo->bus, dinfo->unit);
++            rs = true;
++        }
++    }
++
++    return rs;
++}
++
+ DriveInfo *drive_get_by_index(BlockInterfaceType type, int index)
+ {
+     return drive_get(type,
+diff --git a/include/sysemu/blockdev.h b/include/sysemu/blockdev.h
+index 9240adc..41fe5af 100644
+--- a/include/sysemu/blockdev.h
++++ b/include/sysemu/blockdev.h
+@@ -38,6 +38,7 @@ struct DriveInfo {
+     int unit;
+     int auto_del;               /* see blockdev_mark_auto_del() */
+     bool enable_auto_del;       /* Only for legacy drive_new() */
++    bool is_default;            /* Added by default_drive() ?  */
+     int media_cd;
+     int cyls, heads, secs, trans;
+     QemuOpts *opts;
+@@ -46,6 +47,7 @@ struct DriveInfo {
+ };
+ 
+ DriveInfo *drive_get(BlockInterfaceType type, int bus, int unit);
++bool drive_check_orphaned(void);
+ DriveInfo *drive_get_by_index(BlockInterfaceType type, int index);
+ int drive_get_max_bus(BlockInterfaceType type);
+ DriveInfo *drive_get_next(BlockInterfaceType type);
+diff --git a/vl.c b/vl.c
+index 144780e..7b1b330 100644
+--- a/vl.c
++++ b/vl.c
+@@ -1146,6 +1146,7 @@ static void default_drive(int enable, int snapshot, BlockInterfaceType type,
+                           int index, const char *optstr)
+ {
+     QemuOpts *opts;
++    DriveInfo *dinfo;
+ 
+     if (!enable || drive_get_by_index(type, index)) {
+         return;
+@@ -1155,9 +1156,13 @@ static void default_drive(int enable, int snapshot, BlockInterfaceType type,
+     if (snapshot) {
+         drive_enable_snapshot(opts, NULL);
+     }
+-    if (!drive_new(opts, type)) {
++
++    dinfo = drive_new(opts, type);
++    if (!dinfo) {
+         exit(1);
+     }
++    dinfo->is_default = true;
++
+ }
+ 
+ void qemu_register_boot_set(QEMUBootSetHandler *func, void *opaque)
+@@ -4436,6 +4441,9 @@ int main(int argc, char **argv, char **envp)
+     if (qemu_opts_foreach(qemu_find_opts("device"), device_init_func, NULL, 1) != 0)
+         exit(1);
+ 
++    /* Did we create any drives that we failed to create a device for? */
++    drive_check_orphaned();
++
+     net_check_clients();
+ 
+     ds = init_displaystate();
+-- 
+1.8.3.1
+

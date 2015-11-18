@@ -1,0 +1,52 @@
+From 9a4e755ea2ffd1811e5f00bbba205d6805ef2402 Mon Sep 17 00:00:00 2001
+Message-Id: <9a4e755ea2ffd1811e5f00bbba205d6805ef2402.1418787305.git.jen@redhat.com>
+In-Reply-To: <c0f9fa126e925a00235d9077b474dabb4dbdfdc1.1418787305.git.jen@redhat.com>
+References: <c0f9fa126e925a00235d9077b474dabb4dbdfdc1.1418787305.git.jen@redhat.com>
+From: Jeffrey Cody <jcody@redhat.com>
+Date: Wed, 3 Dec 2014 20:00:44 -0600
+Subject: [CHANGE 07/12] block: remove BLOCK_OPT_NOCOW from vdi_create_opts
+To: rhvirt-patches@redhat.com,
+    jen@redhat.com
+
+RH-Author: Jeffrey Cody <jcody@redhat.com>
+Message-id: <592b21abea6c515e7fe64f0f46e69e449cd0ef5d.1417620879.git.jcody@redhat.com>
+Patchwork-id: 62666
+O-Subject: [PATCH qemu-kvm-rhev RHEV7.1 v2 6/7] block: remove BLOCK_OPT_NOCOW from vdi_create_opts
+Bugzilla: 1136381
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+RH-Acked-by: Max Reitz <mreitz@redhat.com>
+RH-Acked-by: Fam Zheng <famz@redhat.com>
+RH-Acked-by: John Snow <jsnow@redhat.com>
+
+In commit 7074786, the need for NOCOW was removed from the vdi driver,
+as we removed the the posix calls.  However, the BLOCK_OPT_NOCOW was not
+removed from vdi_create_opts.  This was a mistake - remove the opt from
+there as well.
+
+RHEL7 Note: Patch submitted upstream
+
+Signed-off-by: Jeff Cody <jcody@redhat.com>
+Signed-off-by: Jeff E. Nelson <jen@redhat.com>
+---
+ block/vdi.c | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/block/vdi.c b/block/vdi.c
+index 9d62a3c..0de49d5 100644
+--- a/block/vdi.c
++++ b/block/vdi.c
+@@ -825,11 +825,6 @@ static QemuOptsList vdi_create_opts = {
+             .def_value_str = "off"
+         },
+ #endif
+-        {
+-            .name = BLOCK_OPT_NOCOW,
+-            .type = QEMU_OPT_BOOL,
+-            .help = "Turn off copy-on-write (valid only on btrfs)"
+-        },
+         /* TODO: An additional option to set UUID values might be useful. */
+         { /* end of list */ }
+     }
+-- 
+2.1.0
+

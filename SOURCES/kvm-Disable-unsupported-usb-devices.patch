@@ -1,0 +1,47 @@
+From 2fff9011f1a2954c30389bd78aaa7fd9e7b53e1b Mon Sep 17 00:00:00 2001
+From: Miroslav Rezanina <mrezanin@redhat.com>
+Date: Mon, 22 Apr 2013 14:38:38 +0200
+Subject: [PATCH 005/212] Disable unsupported usb devices
+
+Bugzilla: 903914
+
+Patch deactivates device we do not support in RHEL7:
+- usb-audio
+- usb-braille
+- usb-bt-dongle
+- usb-net
+- usb-serial
+- usb-wacom-tablet
+- pci-ohci
+---
+ default-configs/pci.mak |    1 -
+ default-configs/usb.mak |    4 ----
+ 2 files changed, 0 insertions(+), 5 deletions(-)
+
+diff --git a/default-configs/pci.mak b/default-configs/pci.mak
+index 91b1e92..42934c2 100644
+--- a/default-configs/pci.mak
++++ b/default-configs/pci.mak
+@@ -2,7 +2,6 @@ CONFIG_PCI=y
+ CONFIG_VIRTIO_PCI=y
+ CONFIG_VIRTIO=y
+ CONFIG_USB_UHCI=y
+-CONFIG_USB_OHCI=y
+ CONFIG_USB_EHCI=y
+ CONFIG_USB_XHCI=y
+ CONFIG_NE2000_PCI=y
+diff --git a/default-configs/usb.mak b/default-configs/usb.mak
+index 73d8489..91304cd 100644
+--- a/default-configs/usb.mak
++++ b/default-configs/usb.mak
+@@ -3,7 +3,3 @@ CONFIG_USB_STORAGE_BOT=y
+ CONFIG_USB_STORAGE_UAS=y
+ CONFIG_USB_STORAGE_MTP=y
+ CONFIG_USB_SMARTCARD=y
+-CONFIG_USB_AUDIO=y
+-CONFIG_USB_SERIAL=y
+-CONFIG_USB_NETWORK=y
+-CONFIG_USB_BLUETOOTH=y
+-- 
+1.7.1
+

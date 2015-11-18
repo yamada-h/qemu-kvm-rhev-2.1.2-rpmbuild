@@ -1,0 +1,71 @@
+From d832249687955a37538098ea2c18d14c49011b02 Mon Sep 17 00:00:00 2001
+From: Markus Armbruster <armbru@redhat.com>
+Date: Mon, 11 Aug 2014 07:54:35 +0200
+Subject: [PATCH 01/16] exit when -no-kvm and vcpu count > 160
+
+Message-id: <1407743689-13553-2-git-send-email-armbru@redhat.com>
+Patchwork-id: 60504
+O-Subject: [PATCH RHEV-7.1 qemu-kvm-rhev 01/15] exit when -no-kvm and vcpu count > 160
+Bugzilla: 1118665
+RH-Acked-by: Eduardo Habkost <ehabkost@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+
+From: Marcelo Tosatti <mtosatti@redhat.com>
+
+Message-id: <20140506072044.GA25261@amt.cnet>
+Patchwork-id: 58695
+O-Subject: [RHEL7 qemu-kvm PATCH] exit when -no-kvm and vcpu count > 160
+Bugzilla: 1076326
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Andrew Jones <drjones@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+RH-Acked-by: Eduardo Habkost <ehabkost@redhat.com>
+
+Exit when booting with -no-kvm and number of vcpus is
+larger than 160.
+
+Signed-off-by: Marcelo Tosatti <mtosatti@redhat.com>
+BZ: 1076326
+(cherry picked from commit bc949bc00c11f49ba6be7be5b4f1bfc7df93aad5)
+
+Conflicts:
+	hw/i386/pc_piix.c
+	hw/i386/pc_q35.c
+
+Conflicts because we ported upstream commit a0dba64 "pc: reduce
+duplication, fix PIIX descriptions" to the RHEL machine types in
+commit 04a7c6a "set model in PC_RHEL6_5_COMPAT for qemu32 VCPU
+(RHEV-7.1 only)".
+
+Original subject has become misleading.  Since commit 9ba3cf5
+"kvm-all: exit in case max vcpus exceeded", we exit just fine without
+this patch.  We still need it anyway, so that QMP command
+query-machines returns the correct value 160 for member cpu-max,
+instead of 255.
+
+Signed-off-by: Markus Armbruster <armbru@redhat.com>
+---
+ include/hw/i386/pc.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ include/hw/i386/pc.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/include/hw/i386/pc.h b/include/hw/i386/pc.h
+index f4b9b2b..de46485 100644
+--- a/include/hw/i386/pc.h
++++ b/include/hw/i386/pc.h
+@@ -506,6 +506,6 @@ bool e820_get_entry(int, uint32_t, uint64_t *, uint64_t *);
+ #define PC_DEFAULT_MACHINE_OPTIONS \
+     PC_COMMON_MACHINE_OPTIONS, \
+     .hot_add_cpu = pc_hot_add_cpu, \
+-    .max_cpus = 255
++    .max_cpus = 160
+ 
+ #endif
+-- 
+1.7.1
+

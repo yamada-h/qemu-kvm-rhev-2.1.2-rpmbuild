@@ -1,0 +1,69 @@
+From af1c8476133ab9d7728dac521bb894713fb43bc2 Mon Sep 17 00:00:00 2001
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Date: Fri, 7 Nov 2014 12:59:10 -0500
+Subject: [PATCH 07/10] hw/arm/boot: enable DTB support when booting ELF
+ images'
+
+Message-id: <1415383153-28089-8-git-send-email-wei@redhat.com>
+Patchwork-id: 62217
+O-Subject: [RHELSA qemu-kvm-rhev PATCH 07/10] hw/arm/boot: enable DTB support
+        when booting ELF images'
+Bugzilla: 1160325
+RH-Acked-by: Andrew Jones <drjones@redhat.com>
+
+Add support for loading DTB images when booting ELF images using
+-kernel. If there are no conflicts with the placement of the ELF
+segments, the DTB image is loaded at the base of RAM.
+
+Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Message-id: 1410453915-9344-5-git-send-email-ard.biesheuvel@linaro.org
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+
+Signed-off-by: Wei Huang <wei@redhat.com>
+---
+ hw/arm/boot.c | 22 ++++++++++++++++++++--
+ 1 file changed, 20 insertions(+), 2 deletions(-)
+
+diff --git a/hw/arm/boot.c b/hw/arm/boot.c
+index 41d1678..8d0d297 100644
+--- a/hw/arm/boot.c
++++ b/hw/arm/boot.c
+@@ -478,7 +478,7 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
+     int kernel_size;
+     int initrd_size;
+     int is_linux = 0;
+-    uint64_t elf_entry;
++    uint64_t elf_entry, elf_low_addr, elf_high_addr;
+     int elf_machine;
+     hwaddr entry, kernel_load_offset;
+     int big_endian;
+@@ -545,7 +545,25 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
+ 
+     /* Assume that raw images are linux kernels, and ELF images are not.  */
+     kernel_size = load_elf(info->kernel_filename, NULL, NULL, &elf_entry,
+-                           NULL, NULL, big_endian, elf_machine, 1);
++                           &elf_low_addr, &elf_high_addr, big_endian,
++                           elf_machine, 1);
++    if (kernel_size > 0 && have_dtb(info)) {
++        /* If there is still some room left at the base of RAM, try and put
++         * the DTB there like we do for images loaded with -bios or -pflash.
++         */
++        if (elf_low_addr > info->loader_start
++            || elf_high_addr < info->loader_start) {
++            /* Pass elf_low_addr as address limit to load_dtb if it may be
++             * pointing into RAM, otherwise pass '0' (no limit)
++             */
++            if (elf_low_addr < info->loader_start) {
++                elf_low_addr = 0;
++            }
++            if (load_dtb(info->loader_start, info, elf_low_addr) < 0) {
++                exit(1);
++            }
++        }
++    }
+     entry = elf_entry;
+     if (kernel_size < 0) {
+         kernel_size = load_uimage(info->kernel_filename, &entry, NULL,
+-- 
+1.8.3.1
+

@@ -1,0 +1,53 @@
+From 688885c08f2ef817dfc01b0b2aeb7db4ba4f3953 Mon Sep 17 00:00:00 2001
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Date: Tue, 21 Oct 2014 16:17:22 +0200
+Subject: [PATCH 18/21] trace: install trace-events file
+
+Message-id: <1413908245-19510-6-git-send-email-stefanha@redhat.com>
+Patchwork-id: 61769
+O-Subject: [RHEL7.1 qemu-kvm-rhev PATCH 5/8] trace: install trace-events file
+Bugzilla: 1155015
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+
+Install the ./trace-events file into the data directory.  This file
+contains the list of trace events that were built into QEMU at
+compile-time.
+
+The file is a handy reference for the set of trace events that the QEMU
+binary was built with.  It is also needed by the simpletrace.py tool
+that parses binary trace data either emitted from QEMU when built with
+--enable-trace-backend=simple or by the SystemTap simpletrace script
+that QEMU provides.
+
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Message-id: 1411486175-3017-1-git-send-email-stefanha@redhat.com
+(cherry picked from commit 89ae5831a53e2d30a370e9a30fdb35da5a8f89aa)
+
+Added qemu-kvm.spec.template line to include trace-events in the RPM.
+This must be done in this commit to avoid an rpmbuild unpackaged file
+error.
+
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ Makefile                      | 1 +
+ redhat/qemu-kvm.spec.template | 3 ++-
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/Makefile b/Makefile
+index 8ace246..523f069 100644
+--- a/Makefile
++++ b/Makefile
+@@ -418,6 +418,7 @@ endif
+ 	set -e; for x in $(KEYMAPS); do \
+ 		$(INSTALL_DATA) $(SRC_PATH)/pc-bios/keymaps/$$x "$(DESTDIR)$(qemu_datadir)/keymaps"; \
+ 	done
++	$(INSTALL_DATA) $(SRC_PATH)/trace-events "$(DESTDIR)$(qemu_datadir)/trace-events"
+ 	for d in $(TARGET_DIRS); do \
+ 	$(MAKE) $(SUBDIR_MAKEFLAGS) TARGET_DIR=$$d/ -C $$d $@ || exit 1 ; \
+         done
+-- 
+1.8.3.1
+

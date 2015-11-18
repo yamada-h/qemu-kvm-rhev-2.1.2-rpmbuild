@@ -1,0 +1,103 @@
+From 72bb13d14941dacbdeecd7ee214224c03b6e45bf Mon Sep 17 00:00:00 2001
+From: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+Date: Thu, 3 Jul 2014 14:15:55 +0200
+Subject: [PATCH 191/212] RHEL7-> RHEV7.1/2.0 migration compatibility
+
+RH-Author: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+Message-id: <1404396958-13568-2-git-send-email-dgilbert@redhat.com>
+Patchwork-id: 59469
+O-Subject: [RHEL-7.1 qemu-kvm-rhev PATCH v5 1/4] RHEL7-> RHEV7.1/2.0 migration compatibility
+Bugzilla: 1085950
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Eduardo Habkost <ehabkost@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Bandan Das <bsd@redhat.com>
+
+From: "Dr. David Alan Gilbert" <dgilbert@redhat.com>
+
+Import compatibility settings from rhel7 world and the
+compat_1_7/6/5 definitions.
+
+With this set a simple machine migrates from rhel7 to 2.0
+with the rhel6.5.0 and pc-i440fx-rhel7.0.0 machine types
+(and surprisingly it also seems to migrate back in the opposite
+direction!)
+
+Signed-off-by: Dr. David Alan Gilbert <dgilbert@redhat.com>
+---
+ hw/i386/pc_piix.c | 30 ++++++++++++++++++++++++++++++
+ 1 file changed, 30 insertions(+)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/i386/pc_piix.c |   30 ++++++++++++++++++++++++++++++
+ 1 files changed, 30 insertions(+), 0 deletions(-)
+
+diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
+index 67573fe..6ce7716 100644
+--- a/hw/i386/pc_piix.c
++++ b/hw/i386/pc_piix.c
+@@ -953,6 +953,23 @@ static void pc_compat_rhel700(MachineState *machine)
+                                 CPUID_EXT2_RDTSCP);
+ }
+ 
++/*
++ * RHE[LV] This set of items are from include/hw/i386/pc.h where they
++ * are part of the PC_COMPAT_* defs. RHEL7 was QEMU 1.5.3 derived so pick up
++ * the diffs from 1.5 onwards MINUS the things that were already in RHEL7
++ * e.g. msos-desc
++ */
++#define PC_RHEL7_0_COMPAT \
++    {\
++        .driver   = "PIIX4_PM",\
++        .property = "acpi-pci-hotplug-with-bridge-support",\
++        .value    = "off",\
++    },{\
++        .driver   = "e1000",\
++        .property = "mitigation",\
++        .value    = "off",\
++    }
++
+ static void pc_init_rhel700(MachineState *machine)
+ {
+     pc_compat_rhel700(machine);
+@@ -970,9 +987,14 @@ static QEMUMachine pc_machine_rhel700 = {
+     .max_cpus = 255,
+     .is_default = 1,
+     .default_machine_opts = "firmware=bios-256k.bin",
++    .compat_props = (GlobalProperty[]) {
++        PC_RHEL7_0_COMPAT,
++        { /* end of list */ }
++    },
+ };
+ 
+ #define PC_RHEL6_5_COMPAT \
++    PC_RHEL7_0_COMPAT,\
+     {\
+         .driver   = "scsi-hd",\
+         .property = "discard_granularity",\
+@@ -1082,6 +1104,10 @@ static QEMUMachine pc_machine_rhel700 = {
+         .driver   = TYPE_USB_DEVICE,\
+         .property = "msos-desc",\
+         .value    = "no",\
++    },{\
++        .driver   = "virtio-net-pci",\
++        .property = "any_layout",\
++        .value    = "off",\
+     }
+ 
+ static void pc_compat_rhel650(MachineState *machine)
+@@ -1120,6 +1146,10 @@ static void pc_compat_rhel650(MachineState *machine)
+                                 CPUID_EXT2_3DNOW | CPUID_EXT2_3DNOWEXT);
+ 
+     x86_cpu_compat_disable_kvm_features(FEAT_KVM, KVM_FEATURE_PV_UNHALT);
++
++    rom_file_has_mr = false;
++    has_acpi_build = false;
++    gigabyte_align = false;
+ }
+ 
+ static void pc_init_rhel650(MachineState *machine)
+-- 
+1.7.1
+

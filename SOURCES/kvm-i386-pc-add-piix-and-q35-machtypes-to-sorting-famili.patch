@@ -1,0 +1,89 @@
+From fb6f75c3ff5a10df0e5ec12fc5ed89ba32e53268 Mon Sep 17 00:00:00 2001
+From: Laszlo Ersek <lersek@redhat.com>
+Date: Wed, 5 Nov 2014 16:04:12 +0100
+Subject: [PATCH 14/15] i386/pc: add piix and q35 machtypes to sorting families
+ for -M \?
+
+Message-id: <1415203453-7318-3-git-send-email-lersek@redhat.com>
+Patchwork-id: 62143
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH 2/3] i386/pc: add piix and q35 machtypes to sorting families for -M \?
+Bugzilla: 1145042
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+RH-Acked-by: dgibson <dgibson@redhat.com>
+RH-Acked-by: Andrew Jones <drjones@redhat.com>
+RH-Acked-by: Marcel Apfelbaum <marcel.a@redhat.com>
+
+With this patch applied, the output of -M \? is
+
+> Supported machines are:
+> pc                   Standard PC (i440FX + PIIX, 1996) (alias of pc-i440fx-2.2)
+> pc-i440fx-2.2        Standard PC (i440FX + PIIX, 1996) (default)
+> pc-i440fx-2.1        Standard PC (i440FX + PIIX, 1996)
+> pc-i440fx-2.0        Standard PC (i440FX + PIIX, 1996)
+> pc-i440fx-1.7        Standard PC (i440FX + PIIX, 1996)
+> pc-i440fx-1.6        Standard PC (i440FX + PIIX, 1996)
+> pc-i440fx-1.5        Standard PC (i440FX + PIIX, 1996)
+> pc-i440fx-1.4        Standard PC (i440FX + PIIX, 1996)
+> pc-1.3               Standard PC (i440FX + PIIX, 1996)
+> pc-1.2               Standard PC (i440FX + PIIX, 1996)
+> pc-1.1               Standard PC (i440FX + PIIX, 1996)
+> pc-1.0               Standard PC (i440FX + PIIX, 1996)
+> pc-0.15              Standard PC (i440FX + PIIX, 1996)
+> pc-0.14              Standard PC (i440FX + PIIX, 1996)
+> pc-0.13              Standard PC (i440FX + PIIX, 1996)
+> pc-0.12              Standard PC (i440FX + PIIX, 1996)
+> pc-0.11              Standard PC (i440FX + PIIX, 1996)
+> pc-0.10              Standard PC (i440FX + PIIX, 1996)
+> q35                  Standard PC (Q35 + ICH9, 2009) (alias of pc-q35-2.2)
+> pc-q35-2.2           Standard PC (Q35 + ICH9, 2009)
+> pc-q35-2.1           Standard PC (Q35 + ICH9, 2009)
+> pc-q35-2.0           Standard PC (Q35 + ICH9, 2009)
+> pc-q35-1.7           Standard PC (Q35 + ICH9, 2009)
+> pc-q35-1.6           Standard PC (Q35 + ICH9, 2009)
+> pc-q35-1.5           Standard PC (Q35 + ICH9, 2009)
+> pc-q35-1.4           Standard PC (Q35 + ICH9, 2009)
+> isapc                ISA-only PC
+> none                 empty machine
+
+Signed-off-by: Laszlo Ersek <lersek@redhat.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Reviewed-by: Paolo Bonzini <pbonzini@redhat.com>
+Reviewed-by: Marcel Apfelbaum <marcel.a@redhat.com>
+Acked-by: David Gibson <david@gibson.dropbear.id.au>
+
+(cherry picked from commit 562542b6aee2c6be5b6c411edc92c11905b4e9c9)
+Signed-off-by: Laszlo Ersek <lersek@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/i386/pc_piix.c | 1 +
+ hw/i386/pc_q35.c  | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
+index 6386eaf..9178b41 100644
+--- a/hw/i386/pc_piix.c
++++ b/hw/i386/pc_piix.c
+@@ -450,6 +450,7 @@ static void pc_xen_hvm_init(MachineState *machine)
+ 
+ #define PC_I440FX_MACHINE_OPTIONS \
+     PC_DEFAULT_MACHINE_OPTIONS, \
++    .family = "pc_piix", \
+     .desc = "Standard PC (i440FX + PIIX, 1996)", \
+     .hot_add_cpu = pc_hot_add_cpu
+ 
+diff --git a/hw/i386/pc_q35.c b/hw/i386/pc_q35.c
+index 85271ae..f9e841b 100644
+--- a/hw/i386/pc_q35.c
++++ b/hw/i386/pc_q35.c
+@@ -352,6 +352,7 @@ static void pc_q35_init_1_4(MachineState *machine)
+ 
+ #define PC_Q35_MACHINE_OPTIONS \
+     PC_DEFAULT_MACHINE_OPTIONS, \
++    .family = "pc_q35", \
+     .desc = "Standard PC (Q35 + ICH9, 2009)", \
+     .hot_add_cpu = pc_hot_add_cpu, \
+     .units_per_default_bus = 1
+-- 
+1.8.3.1
+

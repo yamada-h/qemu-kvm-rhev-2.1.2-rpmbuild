@@ -1,0 +1,56 @@
+From c5e6a9da50c82ea44f14eb37a09f03e0a585e38e Mon Sep 17 00:00:00 2001
+From: Markus Armbruster <armbru@redhat.com>
+Date: Mon, 11 Aug 2014 07:54:37 +0200
+Subject: [PATCH 03/16] rhel: Use SMBIOS legacy mode for machine types <=7.0
+
+Message-id: <1407743689-13553-4-git-send-email-armbru@redhat.com>
+Patchwork-id: 60514
+O-Subject: [PATCH RHEV-7.1 qemu-kvm-rhev 03/15] rhel: Use SMBIOS legacy mode for machine types <=7.0
+Bugzilla: 1118665
+RH-Acked-by: Eduardo Habkost <ehabkost@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+
+Update the RHEL machine types for upstream commit c97294e.
+
+Signed-off-by: Markus Armbruster <armbru@redhat.com>
+---
+ hw/i386/pc_piix.c | 2 ++
+ hw/i386/pc_q35.c  | 2 ++
+ 2 files changed, 4 insertions(+)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/i386/pc_piix.c |    2 ++
+ hw/i386/pc_q35.c  |    2 ++
+ 2 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
+index 519c9cd..e23fb7f 100644
+--- a/hw/i386/pc_piix.c
++++ b/hw/i386/pc_piix.c
+@@ -953,6 +953,8 @@ static void pc_compat_rhel700(MachineState *machine)
+                                 CPUID_EXT2_RDTSCP);
+     x86_cpu_compat_set_features("Opteron_G5", FEAT_8000_0001_EDX, 0,
+                                 CPUID_EXT2_RDTSCP);
++
++    smbios_legacy_mode = true;
+ }
+ 
+ /*
+diff --git a/hw/i386/pc_q35.c b/hw/i386/pc_q35.c
+index a72654d..e433cb6 100644
+--- a/hw/i386/pc_q35.c
++++ b/hw/i386/pc_q35.c
+@@ -461,6 +461,8 @@ static void pc_q35_compat_rhel700(MachineState *machine)
+                                 CPUID_EXT2_RDTSCP);
+     x86_cpu_compat_set_features("Opteron_G5", FEAT_8000_0001_EDX, 0,
+                                 CPUID_EXT2_RDTSCP);
++
++    smbios_legacy_mode = true;
+ }
+ 
+ static void pc_q35_init_rhel700(MachineState *machine)
+-- 
+1.7.1
+

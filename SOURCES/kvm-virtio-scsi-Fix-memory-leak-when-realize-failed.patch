@@ -1,0 +1,38 @@
+From 6e83dad250d86adbc8dbdc686b606dc5da11742e Mon Sep 17 00:00:00 2001
+From: Fam Zheng <famz@redhat.com>
+Date: Tue, 4 Nov 2014 02:48:34 +0100
+Subject: [PATCH 06/15] virtio-scsi: Fix memory leak when realize failed
+
+Message-id: <1415069315-6921-3-git-send-email-famz@redhat.com>
+Patchwork-id: 62057
+O-Subject: [RHEL-7.1 qemu-kvm-rhev PATCH v2 2/3] virtio-scsi: Fix memory leak when realize failed
+Bugzilla: 1146826
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Max Reitz <mreitz@redhat.com>
+
+Signed-off-by: Fam Zheng <famz@redhat.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 93bd49aff9081bbe9440192db9da3676941f77a3)
+Signed-off-by: Fam Zheng <famz@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/scsi/virtio-scsi.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/hw/scsi/virtio-scsi.c b/hw/scsi/virtio-scsi.c
+index 7e41fda..b9aba7e 100644
+--- a/hw/scsi/virtio-scsi.c
++++ b/hw/scsi/virtio-scsi.c
+@@ -703,6 +703,7 @@ void virtio_scsi_common_realize(DeviceState *dev, Error **errp,
+         error_setg(errp, "Invalid number of queues (= %" PRId32 "), "
+                          "must be a positive integer less than %d.",
+                    s->conf.num_queues, VIRTIO_PCI_QUEUE_MAX);
++        virtio_cleanup(vdev);
+         return;
+     }
+     s->cmd_vqs = g_malloc0(s->conf.num_queues * sizeof(VirtQueue *));
+-- 
+1.8.3.1
+

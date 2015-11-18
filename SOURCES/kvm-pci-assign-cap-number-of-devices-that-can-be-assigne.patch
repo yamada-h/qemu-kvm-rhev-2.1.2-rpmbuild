@@ -1,0 +1,93 @@
+From ae2772a4a070c29d05b872e39809760f404ba439 Mon Sep 17 00:00:00 2001
+From: Bandan Das <bsd@redhat.com>
+Date: Tue, 3 Dec 2013 20:05:12 +0100
+Subject: [PATCH 145/212] pci-assign: cap number of devices that can be assigned
+
+RH-Author: Bandan Das <bsd@redhat.com>
+Message-id: <1386101113-31560-2-git-send-email-bsd@redhat.com>
+Patchwork-id: 55983
+O-Subject: [PATCH RHEL7 qemu-kvm v2 1/2] pci-assign: cap number of devices that can be assigned
+Bugzilla: 678368
+RH-Acked-by: Alex Williamson <alex.williamson@redhat.com>
+RH-Acked-by: Marcelo Tosatti <mtosatti@redhat.com>
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+
+Legacy device assignment is not supported for RHEL7, nevertheless,
+it makes sense to enforce the limit here was well in case we need
+to support it in the future. Note that 8 is the limit enforced on
+RHEL 6, RHEL 5 too has a static limit of 8 assigned devices.
+
+Signed-off-by: Bandan Das <bsd@redhat.com>
+---
+ hw/i386/kvm/pci-assign.c | 19 ++++++++++++++++++-
+ 1 file changed, 18 insertions(+), 1 deletion(-)
+
+Signed-off-by: Michal Novotny <minovotn@redhat.com>
+---
+ hw/i386/kvm/pci-assign.c |   19 ++++++++++++++++++-
+ 1 files changed, 18 insertions(+), 1 deletions(-)
+
+diff --git a/hw/i386/kvm/pci-assign.c b/hw/i386/kvm/pci-assign.c
+index de33657..befe763 100644
+--- a/hw/i386/kvm/pci-assign.c
++++ b/hw/i386/kvm/pci-assign.c
+@@ -139,8 +139,12 @@ typedef struct AssignedDevice {
+     MemoryRegion mmio;
+     char *configfd_name;
+     int32_t bootindex;
++    QLIST_ENTRY(AssignedDevice) next;
+ } AssignedDevice;
+ 
++#define MAX_DEV_ASSIGN_CMDLINE 8
++static QLIST_HEAD(, AssignedDevice) devs = QLIST_HEAD_INITIALIZER(devs);
++
+ static void assigned_dev_update_irq_routing(PCIDevice *dev);
+ 
+ static void assigned_dev_load_option_rom(AssignedDevice *dev);
+@@ -1752,8 +1756,9 @@ static void reset_assigned_device(DeviceState *dev)
+ static int assigned_initfn(struct PCIDevice *pci_dev)
+ {
+     AssignedDevice *dev = DO_UPCAST(AssignedDevice, dev, pci_dev);
++    AssignedDevice *adev;
+     uint8_t e_intx;
+-    int r;
++    int r, i = 0;
+     Error *local_err = NULL;
+ 
+     if (!kvm_enabled()) {
+@@ -1761,6 +1766,16 @@ static int assigned_initfn(struct PCIDevice *pci_dev)
+         goto exit_with_error;
+     }
+ 
++    QLIST_FOREACH(adev, &devs, next) {
++        i++;
++    }
++
++    if (i >= MAX_DEV_ASSIGN_CMDLINE) {
++        error_setg(&local_err, "pci-assign: Maximum supported assigned devices"
++                     " (%d) already attached\n", MAX_DEV_ASSIGN_CMDLINE);
++        goto exit_with_error;
++    }
++
+     if (!dev->host.domain && !dev->host.bus && !dev->host.slot &&
+         !dev->host.function) {
+         error_setg(&local_err, "no host device specified");
+@@ -1830,6 +1845,7 @@ static int assigned_initfn(struct PCIDevice *pci_dev)
+         goto assigned_out;
+     }
+ 
++    QLIST_INSERT_HEAD(&devs, dev, next);
+     assigned_dev_load_option_rom(dev);
+ 
+     add_boot_device_path(dev->bootindex, &pci_dev->qdev, NULL);
+@@ -1853,6 +1869,7 @@ static void assigned_exitfn(struct PCIDevice *pci_dev)
+ {
+     AssignedDevice *dev = DO_UPCAST(AssignedDevice, dev, pci_dev);
+ 
++    QLIST_REMOVE(dev, next);
+     deassign_device(dev);
+     free_assigned_device(dev);
+ }
+-- 
+1.7.1
+

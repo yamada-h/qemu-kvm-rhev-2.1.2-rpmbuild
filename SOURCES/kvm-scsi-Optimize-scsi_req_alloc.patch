@@ -1,0 +1,113 @@
+From c5a494138c05ece805581b294451f8945fbe1b06 Mon Sep 17 00:00:00 2001
+From: Fam Zheng <famz@redhat.com>
+Date: Wed, 26 Nov 2014 08:07:56 +0100
+Subject: [PATCH 1/4] scsi: Optimize scsi_req_alloc
+
+Message-id: <1416989278-17785-2-git-send-email-famz@redhat.com>
+Patchwork-id: 62592
+O-Subject: [RHEL-7.1 qemu-kvm-rhev PATCH v2 1/3] scsi: Optimize scsi_req_alloc
+Bugzilla: 1141656
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+
+Zeroing sense buffer for each scsi request is not efficient, we can just
+leave it uninitialized because sense_len is set to 0.
+
+Move the implicitly zeroed fields to the end of the structure and use a
+partial memset.
+
+The explicitly initialized fields (by scsi_req_alloc or scsi_req_new)
+are moved to the beginning of the structure, before sense buffer, to
+skip the memset.
+
+Also change g_malloc0 to g_slice_alloc.
+
+Signed-off-by: Fam Zheng <famz@redhat.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 61e68b3fbd3e2b7beb636bc56f78d9c1ca25e8f9)
+
+This optimization is not as significant as the next patch, but still
+better. In a 4k seq read fio test, the IOPS rose from 24709 to 25119
+(~1.6% improvement).
+
+Signed-off-by: Fam Zheng <famz@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/scsi/scsi-bus.c     |  8 +++++---
+ include/hw/scsi/scsi.h | 21 ++++++++++++++-------
+ 2 files changed, 19 insertions(+), 10 deletions(-)
+
+diff --git a/hw/scsi/scsi-bus.c b/hw/scsi/scsi-bus.c
+index 6f4462b..e9b10cb 100644
+--- a/hw/scsi/scsi-bus.c
++++ b/hw/scsi/scsi-bus.c
+@@ -553,8 +553,11 @@ SCSIRequest *scsi_req_alloc(const SCSIReqOps *reqops, SCSIDevice *d,
+     SCSIRequest *req;
+     SCSIBus *bus = scsi_bus_from_device(d);
+     BusState *qbus = BUS(bus);
++    const int memset_off = offsetof(SCSIRequest, sense)
++                           + sizeof(req->sense);
+ 
+-    req = g_malloc0(reqops->size);
++    req = g_slice_alloc(reqops->size);
++    memset((uint8_t *)req + memset_off, 0, reqops->size - memset_off);
+     req->refcount = 1;
+     req->bus = bus;
+     req->dev = d;
+@@ -562,7 +565,6 @@ SCSIRequest *scsi_req_alloc(const SCSIReqOps *reqops, SCSIDevice *d,
+     req->lun = lun;
+     req->hba_private = hba_private;
+     req->status = -1;
+-    req->sense_len = 0;
+     req->ops = reqops;
+     object_ref(OBJECT(d));
+     object_ref(OBJECT(qbus->parent));
+@@ -1605,7 +1607,7 @@ void scsi_req_unref(SCSIRequest *req)
+         }
+         object_unref(OBJECT(req->dev));
+         object_unref(OBJECT(qbus->parent));
+-        g_free(req);
++        g_slice_free1(req->ops->size, req);
+     }
+ }
+ 
+diff --git a/include/hw/scsi/scsi.h b/include/hw/scsi/scsi.h
+index a7a28e6..7710907 100644
+--- a/include/hw/scsi/scsi.h
++++ b/include/hw/scsi/scsi.h
+@@ -50,17 +50,24 @@ struct SCSIRequest {
+     uint32_t          tag;
+     uint32_t          lun;
+     uint32_t          status;
++    void              *hba_private;
+     size_t            resid;
+     SCSICommand       cmd;
++
++    /* Note:
++     * - fields before sense are initialized by scsi_req_alloc;
++     * - sense[] is uninitialized;
++     * - fields after sense are memset to 0 by scsi_req_alloc.
++     * */
++
++    uint8_t           sense[SCSI_SENSE_BUF_SIZE];
++    uint32_t          sense_len;
++    bool              enqueued;
++    bool              io_canceled;
++    bool              retry;
++    bool              dma_started;
+     BlockDriverAIOCB  *aiocb;
+     QEMUSGList        *sg;
+-    bool              dma_started;
+-    uint8_t sense[SCSI_SENSE_BUF_SIZE];
+-    uint32_t sense_len;
+-    bool enqueued;
+-    bool io_canceled;
+-    bool retry;
+-    void *hba_private;
+     QTAILQ_ENTRY(SCSIRequest) next;
+ };
+ 
+-- 
+1.8.3.1
+

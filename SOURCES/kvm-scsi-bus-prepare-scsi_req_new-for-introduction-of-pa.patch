@@ -1,0 +1,110 @@
+From 8f74698bb15f5081bb3c5a4b277d0ee7537b1518 Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Fri, 12 Sep 2014 12:08:53 +0200
+Subject: [PATCH 07/14] scsi-bus: prepare scsi_req_new for introduction of parse_cdb
+
+Message-id: <1410523737-12968-2-git-send-email-pbonzini@redhat.com>
+Patchwork-id: 61026
+O-Subject: [RHEL 7.1 qemu-kvm-rhev PATCH 1/5] scsi-bus: prepare scsi_req_new for introduction of parse_cdb
+Bugzilla: 1123349
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+
+The per-SCSIDevice parse_cdb callback must not be called if the
+request will go through special SCSIReqOps, so detect the special
+cases early enough.
+
+Reviewed-by: Fam Zheng <famz@redhat.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry-picked from commit 769998a1dbf338a0cdeab2acf8ef605bcf635e01)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/scsi/scsi-bus.c |   51 ++++++++++++++++++++++++++++++---------------------
+ 1 files changed, 30 insertions(+), 21 deletions(-)
+
+diff --git a/hw/scsi/scsi-bus.c b/hw/scsi/scsi-bus.c
+index 4341754..ca4e9f3 100644
+--- a/hw/scsi/scsi-bus.c
++++ b/hw/scsi/scsi-bus.c
+@@ -561,13 +561,38 @@ SCSIRequest *scsi_req_new(SCSIDevice *d, uint32_t tag, uint32_t lun,
+                           uint8_t *buf, void *hba_private)
+ {
+     SCSIBus *bus = DO_UPCAST(SCSIBus, qbus, d->qdev.parent_bus);
++    const SCSIReqOps *ops;
+     SCSIRequest *req;
+-    SCSICommand cmd;
++    SCSICommand cmd = { .len = 0 };
++    int ret;
++
++    if ((d->unit_attention.key == UNIT_ATTENTION ||
++         bus->unit_attention.key == UNIT_ATTENTION) &&
++        (buf[0] != INQUIRY &&
++         buf[0] != REPORT_LUNS &&
++         buf[0] != GET_CONFIGURATION &&
++         buf[0] != GET_EVENT_STATUS_NOTIFICATION &&
++
++         /*
++          * If we already have a pending unit attention condition,
++          * report this one before triggering another one.
++          */
++         !(buf[0] == REQUEST_SENSE && d->sense_is_ua))) {
++        ops = &reqops_unit_attention;
++    } else if (lun != d->lun ||
++               buf[0] == REPORT_LUNS ||
++               (buf[0] == REQUEST_SENSE && d->sense_len)) {
++        ops = &reqops_target_command;
++    } else {
++        ops = NULL;
++    }
+ 
+-    if (scsi_req_parse(&cmd, d, buf) != 0) {
++    ret = scsi_req_parse(&cmd, d, buf);
++    if (ret != 0) {
+         trace_scsi_req_parse_bad(d->id, lun, tag, buf[0]);
+         req = scsi_req_alloc(&reqops_invalid_opcode, d, tag, lun, hba_private);
+     } else {
++        assert(cmd.len != 0);
+         trace_scsi_req_parsed(d->id, lun, tag, buf[0],
+                               cmd.mode, cmd.xfer);
+         if (cmd.lba != -1) {
+@@ -577,25 +602,8 @@ SCSIRequest *scsi_req_new(SCSIDevice *d, uint32_t tag, uint32_t lun,
+ 
+         if (cmd.xfer > INT32_MAX) {
+             req = scsi_req_alloc(&reqops_invalid_field, d, tag, lun, hba_private);
+-        } else if ((d->unit_attention.key == UNIT_ATTENTION ||
+-                   bus->unit_attention.key == UNIT_ATTENTION) &&
+-                  (buf[0] != INQUIRY &&
+-                   buf[0] != REPORT_LUNS &&
+-                   buf[0] != GET_CONFIGURATION &&
+-                   buf[0] != GET_EVENT_STATUS_NOTIFICATION &&
+-
+-                   /*
+-                    * If we already have a pending unit attention condition,
+-                    * report this one before triggering another one.
+-                    */
+-                   !(buf[0] == REQUEST_SENSE && d->sense_is_ua))) {
+-            req = scsi_req_alloc(&reqops_unit_attention, d, tag, lun,
+-                                 hba_private);
+-        } else if (lun != d->lun ||
+-                   buf[0] == REPORT_LUNS ||
+-                   (buf[0] == REQUEST_SENSE && d->sense_len)) {
+-            req = scsi_req_alloc(&reqops_target_command, d, tag, lun,
+-                                 hba_private);
++        } else if (ops) {
++            req = scsi_req_alloc(ops, d, tag, lun, hba_private);
+         } else {
+             req = scsi_device_alloc_req(d, tag, lun, buf, hba_private);
+         }
+@@ -1186,6 +1194,7 @@ static int scsi_req_parse(SCSICommand *cmd, SCSIDevice *dev, uint8_t *buf)
+ {
+     int rc;
+ 
++    cmd->lba = -1;
+     switch (buf[0] >> 5) {
+     case 0:
+         cmd->len = 6;
+-- 
+1.7.1
+

@@ -1,0 +1,323 @@
+From 27bd50b8d7fe2c674cd737518ff0ea4b3920be09 Mon Sep 17 00:00:00 2001
+From: Laszlo Ersek <lersek@redhat.com>
+Date: Wed, 5 Nov 2014 16:04:11 +0100
+Subject: [PATCH 13/15] well-defined listing order for machine types
+
+Message-id: <1415203453-7318-2-git-send-email-lersek@redhat.com>
+Patchwork-id: 62142
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH 1/3] well-defined listing order for machine types
+Bugzilla: 1145042
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+RH-Acked-by: dgibson <dgibson@redhat.com>
+RH-Acked-by: Andrew Jones <drjones@redhat.com>
+RH-Acked-by: Marcel Apfelbaum <marcel.a@redhat.com>
+
+Commit 261747f1 ("vl: Use MachineClass instead of global QEMUMachine
+list") broke the ordering of the machine types in the user-visible output
+of
+
+  qemu-system-XXXX -M \?
+
+This occurred because registration was rebased from a manually maintained
+linked list to GLib hash tables:
+
+  qemu_register_machine()
+    type_register()
+      type_register_internal()
+        type_table_add()
+          g_hash_table_insert()
+
+and because the listing was rebased accordingly, from the traversal of the
+list to the traversal of the hash table (rendered as an ad-hoc list):
+
+  machine_parse()
+    object_class_get_list(TYPE_MACHINE)
+      object_class_foreach()
+        g_hash_table_foreach()
+
+The current order is a "random" one, for practical purposes, which is
+annoying for users.
+
+Introduce new members QEMUMachine.family and MachineClass.family, allowing
+machine types to be "clustered". Introduce a comparator function that
+establishes a total ordering between machine types, ordering machine types
+in the same family next to each other. In machine_parse(), list the
+supported machine types sorted with the comparator function.
+
+The comparator function:
+- sorts whole families before standalone machine types,
+- sorts whole families between each other in alphabetically increasing
+  order,
+- sorts machine types inside the same family in alphabetically decreasing
+  order,
+- sorts standalone machine types between each other in alphabetically
+  increasing order.
+
+After this patch, all machine types are considered standalone, and
+accordingly, the output is alphabetically ascending. This will be refined
+in the following patches.
+
+Effects on the x86_64 output:
+
+Before:
+
+> Supported machines are:
+> pc-0.13              Standard PC (i440FX + PIIX, 1996)
+> pc-i440fx-2.0        Standard PC (i440FX + PIIX, 1996)
+> pc-1.0               Standard PC (i440FX + PIIX, 1996)
+> pc-i440fx-2.1        Standard PC (i440FX + PIIX, 1996)
+> pc-q35-1.7           Standard PC (Q35 + ICH9, 2009)
+> pc-1.1               Standard PC (i440FX + PIIX, 1996)
+> pc-0.14              Standard PC (i440FX + PIIX, 1996)
+> pc-q35-2.0           Standard PC (Q35 + ICH9, 2009)
+> pc-i440fx-1.4        Standard PC (i440FX + PIIX, 1996)
+> pc-i440fx-1.5        Standard PC (i440FX + PIIX, 1996)
+> pc-0.15              Standard PC (i440FX + PIIX, 1996)
+> pc-q35-1.4           Standard PC (Q35 + ICH9, 2009)
+> isapc                ISA-only PC
+> pc                   Standard PC (i440FX + PIIX, 1996) (alias of pc-i440fx-2.2)
+> pc-i440fx-2.2        Standard PC (i440FX + PIIX, 1996) (default)
+> pc-1.2               Standard PC (i440FX + PIIX, 1996)
+> pc-0.10              Standard PC (i440FX + PIIX, 1996)
+> pc-0.11              Standard PC (i440FX + PIIX, 1996)
+> pc-q35-2.1           Standard PC (Q35 + ICH9, 2009)
+> q35                  Standard PC (Q35 + ICH9, 2009) (alias of pc-q35-2.2)
+> pc-q35-2.2           Standard PC (Q35 + ICH9, 2009)
+> pc-i440fx-1.6        Standard PC (i440FX + PIIX, 1996)
+> pc-i440fx-1.7        Standard PC (i440FX + PIIX, 1996)
+> none                 empty machine
+> pc-q35-1.5           Standard PC (Q35 + ICH9, 2009)
+> pc-q35-1.6           Standard PC (Q35 + ICH9, 2009)
+> pc-0.12              Standard PC (i440FX + PIIX, 1996)
+> pc-1.3               Standard PC (i440FX + PIIX, 1996)
+
+After:
+
+> Supported machines are:
+> isapc                ISA-only PC
+> none                 empty machine
+> pc-0.10              Standard PC (i440FX + PIIX, 1996)
+> pc-0.11              Standard PC (i440FX + PIIX, 1996)
+> pc-0.12              Standard PC (i440FX + PIIX, 1996)
+> pc-0.13              Standard PC (i440FX + PIIX, 1996)
+> pc-0.14              Standard PC (i440FX + PIIX, 1996)
+> pc-0.15              Standard PC (i440FX + PIIX, 1996)
+> pc-1.0               Standard PC (i440FX + PIIX, 1996)
+> pc-1.1               Standard PC (i440FX + PIIX, 1996)
+> pc-1.2               Standard PC (i440FX + PIIX, 1996)
+> pc-1.3               Standard PC (i440FX + PIIX, 1996)
+> pc-i440fx-1.4        Standard PC (i440FX + PIIX, 1996)
+> pc-i440fx-1.5        Standard PC (i440FX + PIIX, 1996)
+> pc-i440fx-1.6        Standard PC (i440FX + PIIX, 1996)
+> pc-i440fx-1.7        Standard PC (i440FX + PIIX, 1996)
+> pc-i440fx-2.0        Standard PC (i440FX + PIIX, 1996)
+> pc-i440fx-2.1        Standard PC (i440FX + PIIX, 1996)
+> pc                   Standard PC (i440FX + PIIX, 1996) (alias of pc-i440fx-2.2)
+> pc-i440fx-2.2        Standard PC (i440FX + PIIX, 1996) (default)
+> pc-q35-1.4           Standard PC (Q35 + ICH9, 2009)
+> pc-q35-1.5           Standard PC (Q35 + ICH9, 2009)
+> pc-q35-1.6           Standard PC (Q35 + ICH9, 2009)
+> pc-q35-1.7           Standard PC (Q35 + ICH9, 2009)
+> pc-q35-2.0           Standard PC (Q35 + ICH9, 2009)
+> pc-q35-2.1           Standard PC (Q35 + ICH9, 2009)
+> q35                  Standard PC (Q35 + ICH9, 2009) (alias of pc-q35-2.2)
+> pc-q35-2.2           Standard PC (Q35 + ICH9, 2009)
+
+Effects on the aarch64 output:
+
+Before:
+
+> Supported machines are:
+> lm3s811evb           Stellaris LM3S811EVB
+> canon-a1100          Canon PowerShot A1100 IS
+> vexpress-a15         ARM Versatile Express for Cortex-A15
+> vexpress-a9          ARM Versatile Express for Cortex-A9
+> xilinx-zynq-a9       Xilinx Zynq Platform Baseboard for Cortex-A9
+> connex               Gumstix Connex (PXA255)
+> n800                 Nokia N800 tablet aka. RX-34 (OMAP2420)
+> lm3s6965evb          Stellaris LM3S6965EVB
+> versatileab          ARM Versatile/AB (ARM926EJ-S)
+> borzoi               Borzoi PDA (PXA270)
+> tosa                 Tosa PDA (PXA255)
+> cheetah              Palm Tungsten|E aka. Cheetah PDA (OMAP310)
+> midway               Calxeda Midway (ECX-2000)
+> mainstone            Mainstone II (PXA27x)
+> n810                 Nokia N810 tablet aka. RX-44 (OMAP2420)
+> terrier              Terrier PDA (PXA270)
+> highbank             Calxeda Highbank (ECX-1000)
+> cubieboard           cubietech cubieboard
+> sx1-v1               Siemens SX1 (OMAP310) V1
+> sx1                  Siemens SX1 (OMAP310) V2
+> realview-eb-mpcore   ARM RealView Emulation Baseboard (ARM11MPCore)
+> kzm                  ARM KZM Emulation Baseboard (ARM1136)
+> akita                Akita PDA (PXA270)
+> z2                   Zipit Z2 (PXA27x)
+> musicpal             Marvell 88w8618 / MusicPal (ARM926EJ-S)
+> realview-pb-a8       ARM RealView Platform Baseboard for Cortex-A8
+> versatilepb          ARM Versatile/PB (ARM926EJ-S)
+> realview-eb          ARM RealView Emulation Baseboard (ARM926EJ-S)
+> realview-pbx-a9      ARM RealView Platform Baseboard Explore for Cortex-A9
+> spitz                Spitz PDA (PXA270)
+> none                 empty machine
+> virt                 ARM Virtual Machine
+> collie               Collie PDA (SA-1110)
+> smdkc210             Samsung SMDKC210 board (Exynos4210)
+> verdex               Gumstix Verdex (PXA270)
+> nuri                 Samsung NURI board (Exynos4210)
+> integratorcp         ARM Integrator/CP (ARM926EJ-S)
+
+After:
+
+> Supported machines are:
+> akita                Akita PDA (PXA270)
+> borzoi               Borzoi PDA (PXA270)
+> canon-a1100          Canon PowerShot A1100 IS
+> cheetah              Palm Tungsten|E aka. Cheetah PDA (OMAP310)
+> collie               Collie PDA (SA-1110)
+> connex               Gumstix Connex (PXA255)
+> cubieboard           cubietech cubieboard
+> highbank             Calxeda Highbank (ECX-1000)
+> integratorcp         ARM Integrator/CP (ARM926EJ-S)
+> kzm                  ARM KZM Emulation Baseboard (ARM1136)
+> lm3s6965evb          Stellaris LM3S6965EVB
+> lm3s811evb           Stellaris LM3S811EVB
+> mainstone            Mainstone II (PXA27x)
+> midway               Calxeda Midway (ECX-2000)
+> musicpal             Marvell 88w8618 / MusicPal (ARM926EJ-S)
+> n800                 Nokia N800 tablet aka. RX-34 (OMAP2420)
+> n810                 Nokia N810 tablet aka. RX-44 (OMAP2420)
+> none                 empty machine
+> nuri                 Samsung NURI board (Exynos4210)
+> realview-eb          ARM RealView Emulation Baseboard (ARM926EJ-S)
+> realview-eb-mpcore   ARM RealView Emulation Baseboard (ARM11MPCore)
+> realview-pb-a8       ARM RealView Platform Baseboard for Cortex-A8
+> realview-pbx-a9      ARM RealView Platform Baseboard Explore for Cortex-A9
+> smdkc210             Samsung SMDKC210 board (Exynos4210)
+> spitz                Spitz PDA (PXA270)
+> sx1                  Siemens SX1 (OMAP310) V2
+> sx1-v1               Siemens SX1 (OMAP310) V1
+> terrier              Terrier PDA (PXA270)
+> tosa                 Tosa PDA (PXA255)
+> verdex               Gumstix Verdex (PXA270)
+> versatileab          ARM Versatile/AB (ARM926EJ-S)
+> versatilepb          ARM Versatile/PB (ARM926EJ-S)
+> vexpress-a15         ARM Versatile Express for Cortex-A15
+> vexpress-a9          ARM Versatile Express for Cortex-A9
+> virt                 ARM Virtual Machine
+> xilinx-zynq-a9       Xilinx Zynq Platform Baseboard for Cortex-A9
+> z2                   Zipit Z2 (PXA27x)
+
+Signed-off-by: Laszlo Ersek <lersek@redhat.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Reviewed-by: Paolo Bonzini <pbonzini@redhat.com>
+Reviewed-by: Marcel Apfelbaum <marcel.a@redhat.com>
+Acked-by: David Gibson <david@gibson.dropbear.id.au>
+
+(cherry picked from commit 2709f263952bab66fc8f971c04d151216b177336)
+Signed-off-by: Laszlo Ersek <lersek@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/i386/pc.c        |  1 +
+ include/hw/boards.h |  2 ++
+ vl.c                | 38 +++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 40 insertions(+), 1 deletion(-)
+
+diff --git a/hw/i386/pc.c b/hw/i386/pc.c
+index 07b0c8e..fc177d3 100644
+--- a/hw/i386/pc.c
++++ b/hw/i386/pc.c
+@@ -1521,6 +1521,7 @@ static void pc_generic_machine_class_init(ObjectClass *oc, void *data)
+     MachineClass *mc = MACHINE_CLASS(oc);
+     QEMUMachine *qm = data;
+ 
++    mc->family = qm->family;
+     mc->name = qm->name;
+     mc->alias = qm->alias;
+     mc->desc = qm->desc;
+diff --git a/include/hw/boards.h b/include/hw/boards.h
+index f8c81e1..30bd80c 100644
+--- a/include/hw/boards.h
++++ b/include/hw/boards.h
+@@ -20,6 +20,7 @@ typedef void QEMUMachineHotAddCPUFunc(const int64_t id, Error **errp);
+ typedef int QEMUMachineGetKvmtypeFunc(const char *arg);
+ 
+ struct QEMUMachine {
++    const char *family; /* NULL iff @name identifies a standalone machtype */
+     const char *name;
+     const char *alias;
+     const char *desc;
+@@ -77,6 +78,7 @@ struct MachineClass {
+     ObjectClass parent_class;
+     /*< public >*/
+ 
++    const char *family; /* NULL iff @name identifies a standalone machtype */
+     const char *name;
+     const char *alias;
+     const char *desc;
+diff --git a/vl.c b/vl.c
+index dfc48b7..bfe543e 100644
+--- a/vl.c
++++ b/vl.c
+@@ -1561,6 +1561,7 @@ static void machine_class_init(ObjectClass *oc, void *data)
+     MachineClass *mc = MACHINE_CLASS(oc);
+     QEMUMachine *qm = data;
+ 
++    mc->family = qm->family;
+     mc->name = qm->name;
+     mc->alias = qm->alias;
+     mc->desc = qm->desc;
+@@ -2643,7 +2644,41 @@ static int debugcon_parse(const char *devname)
+     return 0;
+ }
+ 
+-static MachineClass *machine_parse(const char *name)
++static gint machine_class_cmp(gconstpointer a, gconstpointer b)
++{
++    const MachineClass *mc1 = a, *mc2 = b;
++    int res;
++
++    if (mc1->family == NULL) {
++        if (mc2->family == NULL) {
++            /* Compare standalone machine types against each other; they sort
++             * in increasing order.
++             */
++            return strcmp(object_class_get_name(OBJECT_CLASS(mc1)),
++                          object_class_get_name(OBJECT_CLASS(mc2)));
++        }
++
++        /* Standalone machine types sort after families. */
++        return 1;
++    }
++
++    if (mc2->family == NULL) {
++        /* Families sort before standalone machine types. */
++        return -1;
++    }
++
++    /* Families sort between each other alphabetically increasingly. */
++    res = strcmp(mc1->family, mc2->family);
++    if (res != 0) {
++        return res;
++    }
++
++    /* Within the same family, machine types sort in decreasing order. */
++    return strcmp(object_class_get_name(OBJECT_CLASS(mc2)),
++                  object_class_get_name(OBJECT_CLASS(mc1)));
++}
++
++ static MachineClass *machine_parse(const char *name)
+ {
+     MachineClass *mc = NULL;
+     GSList *el, *machines = object_class_get_list(TYPE_MACHINE, false);
+@@ -2659,6 +2694,7 @@ static MachineClass *machine_parse(const char *name)
+         error_printf("Use -machine help to list supported machines!\n");
+     } else {
+         printf("Supported machines are:\n");
++        machines = g_slist_sort(machines, machine_class_cmp);
+         for (el = machines; el; el = el->next) {
+             MachineClass *mc = el->data;
+             if (mc->alias) {
+-- 
+1.8.3.1
+

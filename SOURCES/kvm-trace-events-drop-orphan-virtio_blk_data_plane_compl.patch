@@ -1,0 +1,45 @@
+From 0cc20d678ef649700a12fb3a723145a94b3f20d7 Mon Sep 17 00:00:00 2001
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Date: Mon, 20 Oct 2014 16:02:45 +0200
+Subject: [PATCH 07/21] trace-events: drop orphan
+ virtio_blk_data_plane_complete_request
+
+Message-id: <1413820971-23552-2-git-send-email-stefanha@redhat.com>
+Patchwork-id: 61749
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH v2 1/7] trace-events: drop orphan virtio_blk_data_plane_complete_request
+Bugzilla: 1144325
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+
+This trace event has not been in use since commit
+b002254dbd4c19a01f29790f840f983803e26893 ("virtio-blk: Unify
+{non-,}dataplane's request handlings").
+
+Cc: Fam Zheng <famz@redhat.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Reviewed-by: Markus Armbruster <armbru@redhat.com>
+Message-id: 1411394595-15300-2-git-send-email-stefanha@redhat.com
+(cherry picked from commit 0bc375eb5178bdfea7e8cd44f6b16bb55c773f4b)
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Acked-by: Laszlo Ersek <lersek@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ trace-events | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/trace-events b/trace-events
+index 99f39ac..6e1f226 100644
+--- a/trace-events
++++ b/trace-events
+@@ -121,7 +121,6 @@ virtio_blk_handle_read(void *req, uint64_t sector, size_t nsectors) "req %p sect
+ virtio_blk_data_plane_start(void *s) "dataplane %p"
+ virtio_blk_data_plane_stop(void *s) "dataplane %p"
+ virtio_blk_data_plane_process_request(void *s, unsigned int out_num, unsigned int in_num, unsigned int head) "dataplane %p out_num %u in_num %u head %u"
+-virtio_blk_data_plane_complete_request(void *s, unsigned int head, int ret) "dataplane %p head %u ret %d"
+ 
+ # hw/virtio/dataplane/vring.c
+ vring_setup(uint64_t physical, void *desc, void *avail, void *used) "vring physical %#"PRIx64" desc %p avail %p used %p"
+-- 
+1.8.3.1
+

@@ -1,0 +1,50 @@
+From c37a1e81419be888ded825de63e063a5d3d864ec Mon Sep 17 00:00:00 2001
+From: Jeffrey Cody <jcody@redhat.com>
+Date: Tue, 27 Jan 2015 13:11:18 +0100
+Subject: [PATCH 2/4] block: remove unused variable in bdrv_commit
+
+Message-id: <708123e83ca56a289fdcab44e59b6f6544db75b7.1422363744.git.jcody@redhat.com>
+Patchwork-id: 63578
+O-Subject: [PATCH v4 qemu-kvm-rhel RHEL7.1 2/4] block: remove unused variable in bdrv_commit
+Bugzilla: 1117170
+RH-Acked-by: Kevin Wolf <kwolf@redhat.com>
+RH-Acked-by: Max Reitz <mreitz@redhat.com>
+RH-Acked-by: John Snow <jsnow@redhat.com>
+
+As Stefan pointed out, the variable 'filename' in bdrv_commit is unused,
+despite being maintained in previous patches.
+
+With this patch, get rid of the variable for good.
+
+Signed-off-by: Jeff Cody <jcody@redhat.com>
+Signed-off-by: Kevin Wolf <kwolf@redhat.com>
+(cherry picked from commit a1a11d10abfff6638479b7510ee1df4f737d89d6)
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ block.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/block.c b/block.c
+index 29173d4..9f68b55 100644
+--- a/block.c
++++ b/block.c
+@@ -2222,7 +2222,6 @@ int bdrv_commit(BlockDriverState *bs)
+     int n, ro, open_flags;
+     int ret = 0;
+     uint8_t *buf = NULL;
+-    char filename[PATH_MAX];
+ 
+     if (!drv)
+         return -ENOMEDIUM;
+@@ -2237,8 +2236,6 @@ int bdrv_commit(BlockDriverState *bs)
+     }
+ 
+     ro = bs->backing_hd->read_only;
+-    /* Use pstrcpy (not strncpy): filename must be NUL-terminated. */
+-    pstrcpy(filename, sizeof(filename), bs->backing_hd->filename);
+     open_flags =  bs->backing_hd->open_flags;
+ 
+     if (ro) {
+-- 
+1.8.3.1
+

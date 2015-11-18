@@ -1,0 +1,41 @@
+From 80bb4559d9857b9586ea10f66fef38dd2307c026 Mon Sep 17 00:00:00 2001
+From: Eduardo Habkost <ehabkost@redhat.com>
+Date: Fri, 9 Jan 2015 18:58:15 +0100
+Subject: [PATCH 1/2] smbios: Fix dimm size calculation when RAM is multiple of
+ 16GB
+
+Message-id: <1420829896-30146-2-git-send-email-ehabkost@redhat.com>
+Patchwork-id: 63233
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH 1/2] smbios: Fix dimm size calculation when RAM is multiple of 16GB
+Bugzilla: 1179165
+RH-Acked-by: Gerd Hoffmann <kraxel@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+
+The Memory Device size calculation logic is broken when the RAM size is
+a multiple of 16GB, making the size of the last entry be 0 instead of
+16GB. Fix the logic to handle that case correctly.
+
+Signed-off-by: Eduardo Habkost <ehabkost@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/i386/smbios.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/hw/i386/smbios.c b/hw/i386/smbios.c
+index 72862d8..fe8686e 100644
+--- a/hw/i386/smbios.c
++++ b/hw/i386/smbios.c
+@@ -851,7 +851,8 @@ void smbios_get_tables(uint8_t **tables, size_t *tables_len,
+         }
+ 
+ #define MAX_DIMM_SZ (16ll * ONE_GB)
+-#define GET_DIMM_SZ ((i < dimm_cnt - 1) ? MAX_DIMM_SZ : ram_size % MAX_DIMM_SZ)
++#define GET_DIMM_SZ ((i < dimm_cnt - 1) ? MAX_DIMM_SZ \
++                                        : ((ram_size - 1) % MAX_DIMM_SZ) + 1)
+ 
+         dimm_cnt = QEMU_ALIGN_UP(ram_size, MAX_DIMM_SZ) / MAX_DIMM_SZ;
+ 
+-- 
+1.8.3.1
+

@@ -1,0 +1,5 @@
+*.bz2
+BUILD/
+BUILDROOT/
+RPMS/
+SRPMS/

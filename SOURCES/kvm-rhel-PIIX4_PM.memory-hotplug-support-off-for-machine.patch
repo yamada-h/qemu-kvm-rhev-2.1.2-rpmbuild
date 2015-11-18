@@ -1,0 +1,43 @@
+From 1765da31897cdc9e6a40e446cbe1fe2bc54a858b Mon Sep 17 00:00:00 2001
+From: Markus Armbruster <armbru@redhat.com>
+Date: Mon, 11 Aug 2014 07:54:42 +0200
+Subject: [PATCH 08/16] rhel: PIIX4_PM.memory-hotplug-support=off for machine types <= 7.0
+
+Message-id: <1407743689-13553-9-git-send-email-armbru@redhat.com>
+Patchwork-id: 60508
+O-Subject: [PATCH RHEV-7.1 qemu-kvm-rhev 08/15] rhel: PIIX4_PM.memory-hotplug-support=off for machine types <= 7.0
+Bugzilla: 1118665
+RH-Acked-by: Eduardo Habkost <ehabkost@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+
+Update RHEL compatibility properties for upstream commit 3477432.
+
+Signed-off-by: Markus Armbruster <armbru@redhat.com>
+---
+ include/hw/i386/pc.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ include/hw/i386/pc.h |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/include/hw/i386/pc.h b/include/hw/i386/pc.h
+index 22fd0c6..99abd47 100644
+--- a/include/hw/i386/pc.h
++++ b/include/hw/i386/pc.h
+@@ -530,6 +530,10 @@ bool e820_get_entry(int, uint32_t, uint64_t *, uint64_t *);
+             .value    = "off",\
+         },{\
+             .driver   = "PIIX4_PM",\
++            .property = "memory-hotplug-support",\
++            .value    = "off",\
++        },{\
++            .driver   = "PIIX4_PM",\
+             .property = "acpi-pci-hotplug-with-bridge-support",\
+             .value    = "off",\
+         },{\
+-- 
+1.7.1
+

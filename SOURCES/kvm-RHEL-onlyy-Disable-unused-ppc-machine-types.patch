@@ -1,0 +1,81 @@
+From 5fac7bc922453532fccaed72e50e630498a955f8 Mon Sep 17 00:00:00 2001
+From: dgibson <dgibson@redhat.com>
+Date: Mon, 8 Sep 2014 03:41:43 +0200
+Subject: [PATCH 04/14] RHEL onlyy: Disable unused ppc machine types
+
+Message-id: <1410147705-12993-4-git-send-email-dgibson@redhat.com>
+Patchwork-id: 60893
+O-Subject: [PATCH qemu-kvm-rhev RHEV7.1 3/5] RHEL onlyy: Disable unused ppc machine types
+Bugzilla: 1113998
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+
+The default qemu configuration for ppc64 includes a number of machine
+types we don't care about for RHEL or RHEV.  This include PReP,
+old-style ppc based Macintosh machines, and several ppc4xx and BookE
+based embedded boards.
+
+Some can be disabled with the config file, others require makefile hacks.
+
+With this patch, only the "pseries" machine type remains for ppc which
+is the only one we care about for RHEV.
+
+Note that this only disables the machine types, it doesn't avoid
+compilation of individual devices which are specific to those
+machines.  That's a job for another day.
+
+Signed-off-by: David Gibson <dgibson@redhat.com>
+---
+ default-configs/ppc64-softmmu.mak | 6 ------
+ hw/ppc/Makefile.objs              | 2 +-
+ 2 files changed, 1 insertion(+), 7 deletions(-)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ default-configs/ppc64-softmmu.mak |    6 ------
+ hw/ppc/Makefile.objs              |    2 +-
+ 2 files changed, 1 insertions(+), 7 deletions(-)
+
+diff --git a/default-configs/ppc64-softmmu.mak b/default-configs/ppc64-softmmu.mak
+index c122b25..da6e745 100644
+--- a/default-configs/ppc64-softmmu.mak
++++ b/default-configs/ppc64-softmmu.mak
+@@ -16,7 +16,6 @@ CONFIG_FDC=y
+ CONFIG_I8257=y
+ CONFIG_I82374=y
+ CONFIG_OPENPIC=y
+-CONFIG_PREP_PCI=y
+ CONFIG_I82378=y
+ CONFIG_PC87312=y
+ CONFIG_MACIO=y
+@@ -37,13 +36,8 @@ CONFIG_PFLASH_CFI01=y
+ CONFIG_PFLASH_CFI02=y
+ CONFIG_PTIMER=y
+ CONFIG_I8259=y
+-CONFIG_XILINX=y
+-CONFIG_XILINX_ETHLITE=y
+ CONFIG_OPENPIC=y
+ CONFIG_PSERIES=y
+-CONFIG_PREP=y
+-CONFIG_MAC=y
+-CONFIG_E500=y
+ CONFIG_OPENPIC_KVM=$(and $(CONFIG_E500),$(CONFIG_KVM))
+ # For pSeries
+ CONFIG_XICS=$(CONFIG_PSERIES)
+diff --git a/hw/ppc/Makefile.objs b/hw/ppc/Makefile.objs
+index 19d9920..61e5316 100644
+--- a/hw/ppc/Makefile.objs
++++ b/hw/ppc/Makefile.objs
+@@ -8,7 +8,7 @@ ifeq ($(CONFIG_PCI)$(CONFIG_PSERIES)$(CONFIG_LINUX), yyy)
+ obj-y += spapr_pci_vfio.o
+ endif
+ # PowerPC 4xx boards
+-obj-y += ppc405_boards.o ppc4xx_devs.o ppc405_uc.o ppc440_bamboo.o
++obj-y += ppc4xx_devs.o ppc405_uc.o
+ obj-y += ppc4xx_pci.o
+ # PReP
+ obj-$(CONFIG_PREP) += prep.o
+-- 
+1.7.1
+

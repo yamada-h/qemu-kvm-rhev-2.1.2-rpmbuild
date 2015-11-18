@@ -1,0 +1,133 @@
+From cebf5833746dc1cf7f3d3c778999c5aafe146629 Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Fri, 12 Sep 2014 12:08:54 +0200
+Subject: [PATCH 08/14] scsi-bus: introduce parse_cdb in SCSIDeviceClass and SCSIBusInfo
+
+Message-id: <1410523737-12968-3-git-send-email-pbonzini@redhat.com>
+Patchwork-id: 61024
+O-Subject: [RHEL 7.1 qemu-kvm-rhev PATCH 2/5] scsi-bus: introduce parse_cdb in SCSIDeviceClass and SCSIBusInfo
+Bugzilla: 1123349
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+
+These callbacks will let devices do their own request parsing, or
+defer it to the bus.  If the bus does not provide an implementation,
+in turn, fall back to the default parsing routine.
+
+Swap the first two arguments to scsi_req_parse, and rename it to
+scsi_req_parse_cdb, for consistency.
+
+Reviewed-by: Fam Zheng <famz@redhat.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry-picked from commit ff34c32ccc29fc23c11f0ef6c86257e23f9e3266)
+
+Conflicts:
+	hw/scsi/scsi-bus.c
+        [missing commit 6a0a70b, hw: Add missing 'static' attributes, 2014-05-02]
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/scsi/scsi-bus.c     |   26 +++++++++++++++++++++++---
+ include/hw/scsi/scsi.h |    6 ++++++
+ 2 files changed, 29 insertions(+), 3 deletions(-)
+
+diff --git a/hw/scsi/scsi-bus.c b/hw/scsi/scsi-bus.c
+index ca4e9f3..d97d18a 100644
+--- a/hw/scsi/scsi-bus.c
++++ b/hw/scsi/scsi-bus.c
+@@ -9,7 +9,7 @@
+ 
+ static char *scsibus_get_dev_path(DeviceState *dev);
+ static char *scsibus_get_fw_dev_path(DeviceState *dev);
+-static int scsi_req_parse(SCSICommand *cmd, SCSIDevice *dev, uint8_t *buf);
++static int scsi_req_parse_cdb(SCSIDevice *dev, SCSICommand *cmd, uint8_t *buf);
+ static void scsi_req_dequeue(SCSIRequest *req);
+ static uint8_t *scsi_target_alloc_buf(SCSIRequest *req, size_t len);
+ static void scsi_target_free_buf(SCSIRequest *req);
+@@ -54,6 +54,20 @@ static void scsi_device_destroy(SCSIDevice *s)
+     }
+ }
+ 
++int scsi_bus_parse_cdb(SCSIDevice *dev, SCSICommand *cmd, uint8_t *buf,
++                       void *hba_private)
++{
++    SCSIBus *bus = DO_UPCAST(SCSIBus, qbus, dev->qdev.parent_bus);
++    int rc;
++
++    assert(cmd->len == 0);
++    rc = scsi_req_parse_cdb(dev, cmd, buf);
++    if (bus->info->parse_cdb) {
++        rc = bus->info->parse_cdb(dev, cmd, buf, hba_private);
++    }
++    return rc;
++}
++
+ static SCSIRequest *scsi_device_alloc_req(SCSIDevice *s, uint32_t tag, uint32_t lun,
+                                           uint8_t *buf, void *hba_private)
+ {
+@@ -562,6 +576,7 @@ SCSIRequest *scsi_req_new(SCSIDevice *d, uint32_t tag, uint32_t lun,
+ {
+     SCSIBus *bus = DO_UPCAST(SCSIBus, qbus, d->qdev.parent_bus);
+     const SCSIReqOps *ops;
++    SCSIDeviceClass *sc = SCSI_DEVICE_GET_CLASS(d);
+     SCSIRequest *req;
+     SCSICommand cmd = { .len = 0 };
+     int ret;
+@@ -587,7 +602,12 @@ SCSIRequest *scsi_req_new(SCSIDevice *d, uint32_t tag, uint32_t lun,
+         ops = NULL;
+     }
+ 
+-    ret = scsi_req_parse(&cmd, d, buf);
++    if (ops != NULL || !sc->parse_cdb) {
++        ret = scsi_req_parse_cdb(d, &cmd, buf);
++    } else {
++        ret = sc->parse_cdb(d, &cmd, buf, hba_private);
++    }
++
+     if (ret != 0) {
+         trace_scsi_req_parse_bad(d->id, lun, tag, buf[0]);
+         req = scsi_req_alloc(&reqops_invalid_opcode, d, tag, lun, hba_private);
+@@ -1190,7 +1210,7 @@ static uint64_t scsi_cmd_lba(SCSICommand *cmd)
+     return lba;
+ }
+ 
+-static int scsi_req_parse(SCSICommand *cmd, SCSIDevice *dev, uint8_t *buf)
++static int scsi_req_parse_cdb(SCSIDevice *dev, SCSICommand *cmd, uint8_t *buf)
+ {
+     int rc;
+ 
+diff --git a/include/hw/scsi/scsi.h b/include/hw/scsi/scsi.h
+index 1adb549..4a0b860 100644
+--- a/include/hw/scsi/scsi.h
++++ b/include/hw/scsi/scsi.h
+@@ -76,6 +76,8 @@ typedef struct SCSIDeviceClass {
+     DeviceClass parent_class;
+     int (*init)(SCSIDevice *dev);
+     void (*destroy)(SCSIDevice *s);
++    int (*parse_cdb)(SCSIDevice *dev, SCSICommand *cmd, uint8_t *buf,
++                     void *hba_private);
+     SCSIRequest *(*alloc_req)(SCSIDevice *s, uint32_t tag, uint32_t lun,
+                               uint8_t *buf, void *hba_private);
+     void (*unit_attention_reported)(SCSIDevice *s);
+@@ -131,6 +133,8 @@ struct SCSIReqOps {
+ struct SCSIBusInfo {
+     int tcq;
+     int max_channel, max_target, max_lun;
++    int (*parse_cdb)(SCSIDevice *dev, SCSICommand *cmd, uint8_t *buf,
++                     void *hba_private);
+     void (*transfer_data)(SCSIRequest *req, uint32_t arg);
+     void (*complete)(SCSIRequest *req, uint32_t arg, size_t resid);
+     void (*cancel)(SCSIRequest *req);
+@@ -244,6 +248,8 @@ void scsi_req_free(SCSIRequest *req);
+ SCSIRequest *scsi_req_ref(SCSIRequest *req);
+ void scsi_req_unref(SCSIRequest *req);
+ 
++int scsi_bus_parse_cdb(SCSIDevice *dev, SCSICommand *cmd, uint8_t *buf,
++                       void *hba_private);
+ void scsi_req_build_sense(SCSIRequest *req, SCSISense sense);
+ void scsi_req_print(SCSIRequest *req);
+ void scsi_req_continue(SCSIRequest *req);
+-- 
+1.7.1
+

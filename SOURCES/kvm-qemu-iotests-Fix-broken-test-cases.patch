@@ -1,0 +1,79 @@
+From 39893db939638fdb4e3a1ad98bf42c174788d1b8 Mon Sep 17 00:00:00 2001
+From: Kevin Wolf <kwolf@redhat.com>
+Date: Tue, 2 Dec 2014 13:06:15 +0100
+Subject: [PATCH 1/3] qemu-iotests: Fix broken test cases
+
+Message-id: <1417525575-19744-1-git-send-email-kwolf@redhat.com>
+Patchwork-id: 62638
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH] qemu-iotests: Fix broken test cases
+Bugzilla: 1169589
+RH-Acked-by: Jeffrey Cody <jcody@redhat.com>
+RH-Acked-by: Max Reitz <mreitz@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+
+This fixes a few qemu-iotests cases which currently fail in this tree
+because of incomplete or wrong backports.
+
+051 and 087 have trivial output changes.
+
+071 would require whitelisting blkverify, but since this doesn't test
+other drivers, but merely the QMP interface for blkdebug/blkverify,
+which is only compiled in for debugging and not really supported anyway,
+we can just skip the test.
+
+Signed-off-by: Kevin Wolf <kwolf@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ tests/qemu-iotests/051.out | 2 ++
+ tests/qemu-iotests/087.out | 1 -
+ tests/qemu-iotests/group   | 2 +-
+ 3 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/tests/qemu-iotests/051.out b/tests/qemu-iotests/051.out
+index 3ea7998..71b2954 100644
+--- a/tests/qemu-iotests/051.out
++++ b/tests/qemu-iotests/051.out
+@@ -132,6 +132,7 @@ QEMU X.Y.Z monitor - type 'help' for more information
+ QEMU_PROG: -device ide-hd,drive=disk: Device initialization failed.
+ QEMU_PROG: -device ide-hd,drive=disk: Device 'ide-hd' could not be initialized
+ 
++
+ === Read-only ===
+ 
+ Testing: -drive file=TEST_DIR/t.qcow2,if=floppy,readonly=on
+@@ -168,6 +169,7 @@ QEMU X.Y.Z monitor - type 'help' for more information
+ QEMU_PROG: -device ide-hd,drive=disk: Device initialization failed.
+ QEMU_PROG: -device ide-hd,drive=disk: Device 'ide-hd' could not be initialized
+ 
++
+ === Cache modes ===
+ 
+ Testing: -drive media=cdrom,cache=none
+diff --git a/tests/qemu-iotests/087.out b/tests/qemu-iotests/087.out
+index 7fbee3f..1f0fd35 100644
+--- a/tests/qemu-iotests/087.out
++++ b/tests/qemu-iotests/087.out
+@@ -21,7 +21,6 @@ QMP_VERSION
+ {"return": {}}
+ {"error": {"class": "GenericError", "desc": "Device with id 'disk' already exists"}}
+ {"error": {"class": "GenericError", "desc": "Device with node-name 'test-node' already exists"}}
+-main-loop: WARNING: I/O thread spun for 1000 iterations
+ {"error": {"class": "GenericError", "desc": "could not open disk image disk2: node-name=disk is conflicting with a device id"}}
+ {"error": {"class": "GenericError", "desc": "could not open disk image disk2: Duplicate node name"}}
+ {"error": {"class": "GenericError", "desc": "could not open disk image disk3: node-name=disk3 is conflicting with a device id"}}
+diff --git a/tests/qemu-iotests/group b/tests/qemu-iotests/group
+index ca2724e..198c975 100644
+--- a/tests/qemu-iotests/group
++++ b/tests/qemu-iotests/group
+@@ -77,7 +77,7 @@
+ 068 rw auto quick
+ 069 rw auto quick
+ 070 rw auto quick
+-071 rw auto quick
++# 071 rw auto quick -- requires whitelisted blkverify
+ 072 rw auto quick
+ 073 rw auto quick
+ 074 rw auto quick
+-- 
+1.8.3.1
+

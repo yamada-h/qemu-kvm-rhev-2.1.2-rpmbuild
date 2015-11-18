@@ -1,0 +1,43 @@
+From 4dc887f77c2657a53a9379b35c846ace751a9184 Mon Sep 17 00:00:00 2001
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Date: Mon, 20 Oct 2014 16:02:50 +0200
+Subject: [PATCH 12/21] trace-events: Drop orphaned monitor trace event
+
+Message-id: <1413820971-23552-7-git-send-email-stefanha@redhat.com>
+Patchwork-id: 61753
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH v2 6/7] trace-events: Drop orphaned monitor trace event
+Bugzilla: 1144325
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+
+From: Markus Armbruster <armbru@redhat.com>
+
+Event monitor_protocol_event is unused since commit 7517517.  Drop it.
+
+Signed-off-by: Markus Armbruster <armbru@redhat.com>
+Message-id: 1411476811-24251-4-git-send-email-armbru@redhat.com
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit 4d249a2074a94ac47bb80d9cde35b8329844504c)
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Acked-by: Laszlo Ersek <lersek@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ trace-events | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/trace-events b/trace-events
+index 96bf83e..b1962a2 100644
+--- a/trace-events
++++ b/trace-events
+@@ -924,7 +924,6 @@ esp_pci_sbac_write(uint32_t reg, uint32_t val) "sbac: 0x%8.8x -> 0x%8.8x"
+ # monitor.c
+ handle_qmp_command(void *mon, const char *cmd_name) "mon %p cmd_name \"%s\""
+ monitor_protocol_emitter(void *mon) "mon %p"
+-monitor_protocol_event(uint32_t event, const char *evname, void *data) "event=%d name \"%s\" data %p"
+ monitor_protocol_event_handler(uint32_t event, void *data, uint64_t last, uint64_t now) "event=%d data=%p last=%" PRId64 " now=%" PRId64
+ monitor_protocol_event_emit(uint32_t event, void *data) "event=%d data=%p"
+ monitor_protocol_event_queue(uint32_t event, void *data, uint64_t rate, uint64_t last, uint64_t now) "event=%d data=%p rate=%" PRId64 " last=%" PRId64 " now=%" PRId64
+-- 
+1.8.3.1
+

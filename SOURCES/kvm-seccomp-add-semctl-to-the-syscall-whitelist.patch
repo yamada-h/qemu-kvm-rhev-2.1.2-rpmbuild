@@ -1,0 +1,44 @@
+From 5917e3a0f450a0750206b30e4dbdfaaf762e4757 Mon Sep 17 00:00:00 2001
+From: Paul Moore <pmoore@redhat.com>
+Date: Thu, 11 Sep 2014 03:24:27 +0200
+Subject: [PATCH 1/4] seccomp: add semctl() to the syscall whitelist
+
+Message-id: <20140911032427.11874.92843.stgit@localhost>
+Patchwork-id: 60972
+O-Subject: [RHEL7 qemu-kvm-rhev PATCH] seccomp: add semctl() to the syscall whitelist
+Bugzilla: 1126704
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+
+QEMU needs to call semctl() for correct operation.  This particular
+problem was identified on shutdown with the following commandline:
+
+ # qemu -sandbox on -monitor stdio \
+   -device intel-hda -device hda-duplex -vnc :0
+
+Signed-off-by: Paul Moore <pmoore@redhat.com>
+Signed-off-by: Eduardo Otubo <eduardo.otubo@profitbricks.com>
+(cherry picked from commit b22876cc2f863c58cfebd4a5301fc47e8ec89228)
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ qemu-seccomp.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/qemu-seccomp.c b/qemu-seccomp.c
+index ea8094d..0503764 100644
+--- a/qemu-seccomp.c
++++ b/qemu-seccomp.c
+@@ -230,7 +230,8 @@ static const struct QemuSeccompSyscall seccomp_whitelist[] = {
+     { SCMP_SYS(timerfd_create), 240 },
+     { SCMP_SYS(shmctl), 240 },
+     { SCMP_SYS(mlock), 240 },
+-    { SCMP_SYS(munlock), 240 }
++    { SCMP_SYS(munlock), 240 },
++    { SCMP_SYS(semctl), 240 }
+ };
+ 
+ int seccomp_start(void)
+-- 
+1.8.3.1
+

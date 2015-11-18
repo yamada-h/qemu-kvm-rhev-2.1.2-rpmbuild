@@ -1,0 +1,153 @@
+From 20705c1c86421820132b6efdcebea15881ff5f0f Mon Sep 17 00:00:00 2001
+From: "Dr. David Alan Gilbert" <dgilbert@redhat.com>
+Date: Thu, 30 Jul 2015 12:07:56 +0200
+Subject: [PATCH 05/13] Store block name in local blocks structure
+
+Message-id: <1438258084-15753-6-git-send-email-dgilbert@redhat.com>
+Patchwork-id: 67213
+O-Subject: [RHEL-7.1.Z qemu-kvm-rhev PATCH 05/13] Store block name in local blocks structure
+Bugzilla: 1248382
+RH-Acked-by: Marcel Apfelbaum <marcel@redhat.com>
+RH-Acked-by: Amit Shah <amit.shah@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+
+From: "Dr. David Alan Gilbert" <dgilbert@redhat.com>
+
+In a later patch the block name will be used to match up two views
+of the block list.  Keep a copy of the block name with the local block
+list.
+
+(At some point it could be argued that it would be best just to let
+migration see the innards of RAMBlock and avoid the need to use
+foreach).
+
+Signed-off-by: Dr. David Alan Gilbert <dgilbert@redhat.com>
+Reviewed-by: Michael R. Hines <mrhines@us.ibm.com>
+Signed-off-by: Juan Quintela <quintela@redhat.com>
+(cherry picked from commit 4fb5364b9096d6110c46604dbf1e19b7e766e757)
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+
+Conflicts:
+	migration-rdma.c
+	trace-events
+---
+ migration-rdma.c | 46 +++++++++++++++++++++++++++-------------------
+ trace-events     |  3 +++
+ 2 files changed, 30 insertions(+), 19 deletions(-)
+
+diff --git a/migration-rdma.c b/migration-rdma.c
+index 25d668b..c554b15 100644
+--- a/migration-rdma.c
++++ b/migration-rdma.c
+@@ -26,6 +26,7 @@
+ #include <arpa/inet.h>
+ #include <string.h>
+ #include <rdma/rdma_cma.h>
++#include "trace.h"
+ 
+ //#define DEBUG_RDMA
+ //#define DEBUG_RDMA_VERBOSE
+@@ -241,17 +242,18 @@ static void network_to_caps(RDMACapabilities *cap)
+  * the information. It's small anyway, so a list is overkill.
+  */
+ typedef struct RDMALocalBlock {
+-    uint8_t  *local_host_addr; /* local virtual address */
+-    uint64_t remote_host_addr; /* remote virtual address */
+-    uint64_t offset;
+-    uint64_t length;
+-    struct   ibv_mr **pmr;     /* MRs for chunk-level registration */
+-    struct   ibv_mr *mr;       /* MR for non-chunk-level registration */
+-    uint32_t *remote_keys;     /* rkeys for chunk-level registration */
+-    uint32_t remote_rkey;      /* rkeys for non-chunk-level registration */
+-    int      index;            /* which block are we */
+-    bool     is_ram_block;
+-    int      nb_chunks;
++    char          *block_name;
++    uint8_t       *local_host_addr; /* local virtual address */
++    uint64_t       remote_host_addr; /* remote virtual address */
++    uint64_t       offset;
++    uint64_t       length;
++    struct         ibv_mr **pmr;    /* MRs for chunk-level registration */
++    struct         ibv_mr *mr;      /* MR for non-chunk-level registration */
++    uint32_t      *remote_keys;     /* rkeys for chunk-level registration */
++    uint32_t       remote_rkey;     /* rkeys for non-chunk-level registration */
++    int            index;           /* which block are we */
++    bool           is_ram_block;
++    int            nb_chunks;
+     unsigned long *transit_bitmap;
+     unsigned long *unregister_bitmap;
+ } RDMALocalBlock;
+@@ -537,7 +539,8 @@ static inline uint8_t *ram_chunk_end(const RDMALocalBlock *rdma_ram_block,
+     return result;
+ }
+ 
+-static int __qemu_rdma_add_block(RDMAContext *rdma, void *host_addr,
++static int rdma_add_block(RDMAContext *rdma, const char *block_name,
++                         void *host_addr,
+                          ram_addr_t block_offset, uint64_t length)
+ {
+     RDMALocalBlocks *local = &rdma->local_ram_blocks;
+@@ -563,6 +566,7 @@ static int __qemu_rdma_add_block(RDMAContext *rdma, void *host_addr,
+ 
+     block = &local->block[local->nb_blocks];
+ 
++    block->block_name = g_strdup(block_name);
+     block->local_host_addr = host_addr;
+     block->offset = block_offset;
+     block->length = length;
+@@ -578,12 +582,13 @@ static int __qemu_rdma_add_block(RDMAContext *rdma, void *host_addr,
+ 
+     g_hash_table_insert(rdma->blockmap, (void *) block_offset, block);
+ 
+-    DDPRINTF("Added Block: %d, addr: %" PRIu64 ", offset: %" PRIu64
+-           " length: %" PRIu64 " end: %" PRIu64 " bits %" PRIu64 " chunks %d\n",
+-            local->nb_blocks, (uint64_t) block->local_host_addr, block->offset,
+-            block->length, (uint64_t) (block->local_host_addr + block->length),
+-                BITS_TO_LONGS(block->nb_chunks) *
+-                    sizeof(unsigned long) * 8, block->nb_chunks);
++    trace_rdma_add_block(block_name, local->nb_blocks,
++                         (uintptr_t) block->local_host_addr,
++                         block->offset, block->length,
++                         (uintptr_t) (block->local_host_addr + block->length),
++                         BITS_TO_LONGS(block->nb_chunks) *
++                             sizeof(unsigned long) * 8,
++                         block->nb_chunks);
+ 
+     local->nb_blocks++;
+ 
+@@ -598,7 +603,7 @@ static int __qemu_rdma_add_block(RDMAContext *rdma, void *host_addr,
+ static int qemu_rdma_init_one_block(const char *block_name, void *host_addr,
+     ram_addr_t block_offset, ram_addr_t length, void *opaque)
+ {
+-    return __qemu_rdma_add_block(opaque, host_addr, block_offset, length);
++    return rdma_add_block(opaque, block_name, host_addr, block_offset, length);
+ }
+ 
+ /*
+@@ -660,6 +665,9 @@ static int __qemu_rdma_delete_block(RDMAContext *rdma, ram_addr_t block_offset)
+     g_free(block->remote_keys);
+     block->remote_keys = NULL;
+ 
++    g_free(block->block_name);
++    block->block_name = NULL;
++
+     for (x = 0; x < local->nb_blocks; x++) {
+         g_hash_table_remove(rdma->blockmap, (void *)old[x].offset);
+     }
+diff --git a/trace-events b/trace-events
+index 166d5b1..7313458 100644
+--- a/trace-events
++++ b/trace-events
+@@ -1250,6 +1250,9 @@ migrate_fd_cancel(void) ""
+ migrate_pending(uint64_t size, uint64_t max) "pending size %" PRIu64 " max %" PRIu64
+ migrate_transferred(uint64_t tranferred, uint64_t time_spent, double bandwidth, uint64_t size) "transferred %" PRIu64 " time_spent %" PRIu64 " bandwidth %g max_size %" PRId64
+ 
++# migration-rdma.c
++rdma_add_block(const char *block_name, int block, uint64_t addr, uint64_t offset, uint64_t len, uint64_t end, uint64_t bits, int chunks) "Added Block: '%s':%d, addr: %" PRIu64 ", offset: %" PRIu64 " length: %" PRIu64 " end: %" PRIu64 " bits %" PRIu64 " chunks %d"
++
+ # kvm-all.c
+ kvm_ioctl(int type, void *arg) "type 0x%x, arg %p"
+ kvm_vm_ioctl(int type, void *arg) "type 0x%x, arg %p"
+-- 
+1.8.3.1
+

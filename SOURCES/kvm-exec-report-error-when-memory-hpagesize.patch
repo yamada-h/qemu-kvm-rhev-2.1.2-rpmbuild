@@ -1,0 +1,71 @@
+From fe2cedc33d96da1ece19b86cd35cd0b14aab0202 Mon Sep 17 00:00:00 2001
+From: Luiz Capitulino <lcapitulino@redhat.com>
+Date: Tue, 4 Nov 2014 21:21:55 +0100
+Subject: [PATCH 2/5] exec: report error when memory < hpagesize
+
+Message-id: <1415136116-9003-2-git-send-email-lcapitulino@redhat.com>
+Patchwork-id: 62103
+O-Subject: [RHEL7.1 qemu-kvm-rhev PATCH 1/2] exec: report error when memory < hpagesize
+Bugzilla: 1147354
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Andrew Jones <drjones@redhat.com>
+
+From: Hu Tao <hutao@cn.fujitsu.com>
+
+Report an error when memory < hpagesize in file_ram_alloc() so callers
+can handle the error.
+
+If user adds a memory-backend-file object using object_add command,
+specifying a size that is less than huge page size, qemu will core dump
+with message:
+
+  Bad ram offset fffffffffffff000
+  Aborted (core dumped)
+
+This patch fixes the problem. With this patch, qemu reports error
+message like:
+
+  qemu-system-x86_64: -object memory-backend-file,mem-path=/hugepages,id=mem-file0,size=1M: memory
+  size 0x100000 must be equal to or larger than huge page size 0x200000
+
+Signed-off-by: Hu Tao <hutao@cn.fujitsu.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 557529dd600fb0f1fc52e86c9679afa6a9368bc8)
+Signed-off-by: Luiz Capitulino <lcapitulino@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ exec.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/exec.c b/exec.c
+index a7d7daa..ef7622b 100644
+--- a/exec.c
++++ b/exec.c
+@@ -1059,9 +1059,9 @@ static void *file_ram_alloc(RAMBlock *block,
+     char *filename;
+     char *sanitized_name;
+     char *c;
+-    void *area;
++    void *area = NULL;
+     int fd;
+-    unsigned long hpagesize;
++    uint64_t hpagesize;
+ 
+     hpagesize = gethugepagesize(path);
+     if (!hpagesize) {
+@@ -1069,7 +1069,10 @@ static void *file_ram_alloc(RAMBlock *block,
+     }
+ 
+     if (memory < hpagesize) {
+-        return NULL;
++        error_setg(errp, "memory size 0x" RAM_ADDR_FMT " must be equal to "
++                   "or larger than huge page size 0x%" PRIx64,
++                   memory, hpagesize);
++        goto error;
+     }
+ 
+     if (kvm_enabled() && !kvm_has_sync_mmu()) {
+-- 
+1.8.3.1
+

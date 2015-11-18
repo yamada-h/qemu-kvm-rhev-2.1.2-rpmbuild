@@ -1,0 +1,59 @@
+From 4e006b945f4e43213a920adb262075d6095d6019 Mon Sep 17 00:00:00 2001
+From: Igor Mammedov <imammedo@redhat.com>
+Date: Fri, 10 Oct 2014 11:25:20 +0200
+Subject: [PATCH 01/48] pc-dimm: Don't check dimm->node when there is non-NUMA
+ config
+
+Message-id: <1412940320-4165-1-git-send-email-imammedo@redhat.com>
+Patchwork-id: 61671
+O-Subject: [RHEV-7.1 qemu-kvm PATCH] pc-dimm: Don't check dimm->node when there is non-NUMA config
+Bugzilla: 1163735
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Luiz Capitulino <lcapitulino@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+
+Bugzilla: https://bugzilla.redhat.com/show_bug.cgi?id=1150510
+Brew: http://brewweb.devel.redhat.com/brew/taskinfo?taskID=8089044
+
+It should not break memory hotplug feature if there is non-NUMA option.
+
+This patch would also allow to use pc-dimm as replacement for initial memory
+for non-NUMA configs.
+
+Note: After this patch, the memory hotplug can work normally for Linux guest OS
+when there is non-NUMA option and NUMA option. But not support Windows guest OS
+to hotplug memory with no-NUMA config, actully, it's Windows limitation.
+
+Reviewed-By: Igor Mammedov <imammedo@redhat.com>
+Signed-off-by: zhanghailiang <zhang.zhanghailiang@huawei.com>
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+(cherry picked from commit fc50ff0666315be5120c70ad00cd0b0097484b84)
+
+Signed-off-by: Igor Mammedov <imammedo@redhat.com>
+---
+ hw/mem/pc-dimm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/mem/pc-dimm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/hw/mem/pc-dimm.c b/hw/mem/pc-dimm.c
+index 5bfc5b7..a800ea7 100644
+--- a/hw/mem/pc-dimm.c
++++ b/hw/mem/pc-dimm.c
+@@ -252,7 +252,7 @@ static void pc_dimm_realize(DeviceState *dev, Error **errp)
+         error_setg(errp, "'" PC_DIMM_MEMDEV_PROP "' property is not set");
+         return;
+     }
+-    if (dimm->node >= nb_numa_nodes) {
++    if ((nb_numa_nodes > 0) && (dimm->node >= nb_numa_nodes)) {
+         error_setg(errp, "'DIMM property " PC_DIMM_NODE_PROP " has value %"
+                    PRIu32 "' which exceeds the number of numa nodes: %d",
+                    dimm->node, nb_numa_nodes);
+-- 
+1.8.3.1
+

@@ -1,0 +1,214 @@
+From aa4c57e7e495f62623fd2c780ec3903bf08ac630 Mon Sep 17 00:00:00 2001
+From: John Snow <jsnow@redhat.com>
+Date: Fri, 14 Nov 2014 22:07:33 +0100
+Subject: [PATCH 45/48] ahci: Update byte count after DMA completion
+
+Message-id: <1416002855-4964-19-git-send-email-jsnow@redhat.com>
+Patchwork-id: 62406
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH v2 18/20] ahci: Update byte count after DMA completion
+Bugzilla: 1024599
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+
+Currently, DMA read/write operations neglect to update
+the byte count after a successful transfer like ATAPI
+DMA read or PIO read/write operations do.
+
+We correct this oversight by adding another callback into
+the IDEDMAOps structure. The commit callback is called
+whenever we are cleaning up a scatter-gather list.
+AHCI can register this callback in order to update post-
+transfer information such as byte count updates.
+
+We use this callback in AHCI to consolidate where we delete
+the SGlist as generated from the PRDT, as well as update the
+byte count after the transfer is complete.
+
+The QEMUSGList structure has an init flag added to it in order
+to make qemu_sglist_destroy a nop if it is called when
+there is no sglist, which simplifies cleanup and error paths.
+
+This patch fixes several AHCI problems, notably Non-NCQ modes
+of operation for Windows 7 as well as Hibernate support for Windows 7.
+
+Signed-off-by: John Snow <jsnow@redhat.com>
+Reviewed-by: Paolo Bonzini <pbonzini@redhat.com>
+Tested-by: Michael S. Tsirkin <mst@redhat.com>
+Message-id: 1412204151-18117-3-git-send-email-jsnow@redhat.com
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit 659142ecf71a0da240ab0ff7cf929ee25c32b9bc)
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/ide/ahci.c     | 41 +++++++++++++++++++++++++++++++----------
+ hw/ide/core.c     | 11 +++++++----
+ hw/ide/internal.h |  2 ++
+ 3 files changed, 40 insertions(+), 14 deletions(-)
+
+diff --git a/hw/ide/ahci.c b/hw/ide/ahci.c
+index ae4af45..4b94d51 100644
+--- a/hw/ide/ahci.c
++++ b/hw/ide/ahci.c
+@@ -48,6 +48,9 @@ static int handle_cmd(AHCIState *s,int port,int slot);
+ static void ahci_reset_port(AHCIState *s, int port);
+ static void ahci_write_fis_d2h(AHCIDevice *ad, uint8_t *cmd_fis);
+ static void ahci_init_d2h(AHCIDevice *ad);
++static int ahci_dma_prepare_buf(IDEDMA *dma, int is_write);
++static void ahci_commit_buf(IDEDMA *dma, uint32_t tx_bytes);
++
+ 
+ static uint32_t  ahci_port_read(AHCIState *s, int port, int offset)
+ {
+@@ -1100,16 +1103,12 @@ static void ahci_start_transfer(IDEDMA *dma)
+         }
+     }
+ 
+-    /* update number of transferred bytes */
+-    ad->cur_cmd->status = cpu_to_le32(le32_to_cpu(ad->cur_cmd->status) + size);
+-
+ out:
+     /* declare that we processed everything */
+     s->data_ptr = s->data_end;
+ 
+-    if (has_sglist) {
+-        qemu_sglist_destroy(&s->sg);
+-    }
++    /* Update number of transferred bytes, destroy sglist */
++    ahci_commit_buf(dma, size);
+ 
+     s->end_transfer_func(s);
+ 
+@@ -1130,6 +1129,11 @@ static void ahci_start_dma(IDEDMA *dma, IDEState *s,
+     dma_cb(s, 0);
+ }
+ 
++/**
++ * Called in DMA R/W chains to read the PRDT, utilizing ahci_populate_sglist.
++ * Not currently invoked by PIO R/W chains,
++ * which invoke ahci_populate_sglist via ahci_start_transfer.
++ */
+ static int ahci_dma_prepare_buf(IDEDMA *dma, int is_write)
+ {
+     AHCIDevice *ad = DO_UPCAST(AHCIDevice, dma, dma);
+@@ -1142,6 +1146,24 @@ static int ahci_dma_prepare_buf(IDEDMA *dma, int is_write)
+     return s->io_buffer_size != 0;
+ }
+ 
++/**
++ * Destroys the scatter-gather list,
++ * and updates the command header with a bytes-read value.
++ * called explicitly via ahci_dma_rw_buf (ATAPI DMA),
++ * and ahci_start_transfer (PIO R/W),
++ * and called via callback from ide_dma_cb for DMA R/W paths.
++ */
++static void ahci_commit_buf(IDEDMA *dma, uint32_t tx_bytes)
++{
++    AHCIDevice *ad = DO_UPCAST(AHCIDevice, dma, dma);
++    IDEState *s = &ad->port.ifs[0];
++
++    tx_bytes += le32_to_cpu(ad->cur_cmd->status);
++    ad->cur_cmd->status = cpu_to_le32(tx_bytes);
++
++    qemu_sglist_destroy(&s->sg);
++}
++
+ static int ahci_dma_rw_buf(IDEDMA *dma, int is_write)
+ {
+     AHCIDevice *ad = DO_UPCAST(AHCIDevice, dma, dma);
+@@ -1159,11 +1181,9 @@ static int ahci_dma_rw_buf(IDEDMA *dma, int is_write)
+         dma_buf_write(p, l, &s->sg);
+     }
+ 
+-    /* free sglist that was created in ahci_populate_sglist() */
+-    qemu_sglist_destroy(&s->sg);
++    /* free sglist, update byte count */
++    ahci_commit_buf(dma, l);
+ 
+-    /* update number of transferred bytes */
+-    ad->cur_cmd->status = cpu_to_le32(le32_to_cpu(ad->cur_cmd->status) + l);
+     s->io_buffer_index += l;
+     s->io_buffer_offset += l;
+ 
+@@ -1206,6 +1226,7 @@ static const IDEDMAOps ahci_dma_ops = {
+     .start_dma = ahci_start_dma,
+     .start_transfer = ahci_start_transfer,
+     .prepare_buf = ahci_dma_prepare_buf,
++    .commit_buf = ahci_commit_buf,
+     .rw_buf = ahci_dma_rw_buf,
+     .set_unit = ahci_dma_set_unit,
+     .cmd_done = ahci_cmd_done,
+diff --git a/hw/ide/core.c b/hw/ide/core.c
+index 4e8f367..d87ea20 100644
+--- a/hw/ide/core.c
++++ b/hw/ide/core.c
+@@ -629,8 +629,11 @@ void ide_sector_read(IDEState *s)
+                                   ide_sector_read_cb, s);
+ }
+ 
+-static void dma_buf_commit(IDEState *s)
++static void dma_buf_commit(IDEState *s, uint32_t tx_bytes)
+ {
++    if (s->bus->dma->ops->commit_buf) {
++        s->bus->dma->ops->commit_buf(s->bus->dma, tx_bytes);
++    }
+     qemu_sglist_destroy(&s->sg);
+ }
+ 
+@@ -645,6 +648,7 @@ void ide_set_inactive(IDEState *s, bool more)
+ 
+ void ide_dma_error(IDEState *s)
+ {
++    dma_buf_commit(s, 0);
+     ide_abort_command(s);
+     ide_set_inactive(s, false);
+     ide_set_irq(s->bus);
+@@ -660,7 +664,6 @@ static int ide_handle_rw_error(IDEState *s, int error, int op)
+         s->bus->error_status = op;
+     } else if (action == BLOCK_ERROR_ACTION_REPORT) {
+         if (op & IDE_RETRY_DMA) {
+-            dma_buf_commit(s);
+             ide_dma_error(s);
+         } else {
+             ide_rw_error(s);
+@@ -701,7 +704,8 @@ void ide_dma_cb(void *opaque, int ret)
+ 
+     sector_num = ide_get_sector(s);
+     if (n > 0) {
+-        dma_buf_commit(s);
++        assert(s->io_buffer_size == s->sg.size);
++        dma_buf_commit(s, s->io_buffer_size);
+         sector_num += n;
+         ide_set_sector(s, sector_num);
+         s->nsector -= n;
+@@ -732,7 +736,6 @@ void ide_dma_cb(void *opaque, int ret)
+ 
+     if ((s->dma_cmd == IDE_DMA_READ || s->dma_cmd == IDE_DMA_WRITE) &&
+         !ide_sect_range_ok(s, sector_num, n)) {
+-        dma_buf_commit(s);
+         ide_dma_error(s);
+         return;
+     }
+diff --git a/hw/ide/internal.h b/hw/ide/internal.h
+index 5c19f79..033329d 100644
+--- a/hw/ide/internal.h
++++ b/hw/ide/internal.h
+@@ -322,6 +322,7 @@ typedef void EndTransferFunc(IDEState *);
+ typedef void DMAStartFunc(IDEDMA *, IDEState *, BlockDriverCompletionFunc *);
+ typedef void DMAVoidFunc(IDEDMA *);
+ typedef int DMAIntFunc(IDEDMA *, int);
++typedef void DMAu32Func(IDEDMA *, uint32_t);
+ typedef void DMAStopFunc(IDEDMA *, bool);
+ typedef void DMARestartFunc(void *, int, RunState);
+ 
+@@ -430,6 +431,7 @@ struct IDEDMAOps {
+     DMAStartFunc *start_dma;
+     DMAVoidFunc *start_transfer;
+     DMAIntFunc *prepare_buf;
++    DMAu32Func *commit_buf;
+     DMAIntFunc *rw_buf;
+     DMAIntFunc *set_unit;
+     DMAStopFunc *set_inactive;
+-- 
+1.8.3.1
+

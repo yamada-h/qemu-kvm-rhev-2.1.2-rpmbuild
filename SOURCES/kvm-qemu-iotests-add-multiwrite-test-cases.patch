@@ -1,0 +1,289 @@
+From ba71d662f2dc3c88d907faf707415c16b8d170d4 Mon Sep 17 00:00:00 2001
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Date: Fri, 3 Oct 2014 15:49:01 +0200
+Subject: [PATCH 4/4] qemu-iotests: add multiwrite test cases
+
+Message-id: <1412351341-29609-3-git-send-email-stefanha@redhat.com>
+Patchwork-id: 61569
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH 2/2] qemu-iotests: add multiwrite test cases
+Bugzilla: 1123908
+RH-Acked-by: Max Reitz <mreitz@redhat.com>
+RH-Acked-by: Fam Zheng <famz@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+
+This test case covers the basic bdrv_aio_multiwrite() scenarios:
+1. Single request
+2. Sequential requests (AABB)
+3. Superset overlapping requests (AABBAA)
+4. Subset overlapping requests (BBAABB)
+5. Head overlapping requests (AABB)
+6. Tail overlapping requests (BBAA)
+7. Disjoint requests (AA BB)
+
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Reviewed-by: Eric Blake <eblake@redhat.com>
+Reviewed-by: Benoit Canet <benoit@irqsave.net>
+(cherry picked from commit 12ade7609004bb1b09a845c144b36ea1850854c7)
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+
+Conflicts:
+	tests/qemu-iotests/group
+
+Context conflict due to 099 missing downstream.  Trivial to resolve.
+---
+ tests/qemu-iotests/100     | 134 +++++++++++++++++++++++++++++++++++++++++++++
+ tests/qemu-iotests/100.out |  89 ++++++++++++++++++++++++++++++
+ tests/qemu-iotests/group   |   1 +
+ 3 files changed, 224 insertions(+)
+ create mode 100755 tests/qemu-iotests/100
+ create mode 100644 tests/qemu-iotests/100.out
+
+diff --git a/tests/qemu-iotests/100 b/tests/qemu-iotests/100
+new file mode 100755
+index 0000000..9124aba
+--- /dev/null
++++ b/tests/qemu-iotests/100
+@@ -0,0 +1,134 @@
++#!/bin/bash
++#
++# Test simple read/write using plain bdrv_read/bdrv_write
++#
++# Copyright (C) 2014 Red Hat, Inc.
++#
++# This program is free software; you can redistribute it and/or modify
++# it under the terms of the GNU General Public License as published by
++# the Free Software Foundation; either version 2 of the License, or
++# (at your option) any later version.
++#
++# This program is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU General Public License for more details.
++#
++# You should have received a copy of the GNU General Public License
++# along with this program.  If not, see <http://www.gnu.org/licenses/>.
++#
++
++# creator
++owner=stefanha@redhat.com
++
++seq=`basename $0`
++echo "QA output created by $seq"
++
++here=`pwd`
++tmp=/tmp/$$
++status=1	# failure is the default!
++
++_cleanup()
++{
++	_cleanup_test_img
++}
++trap "_cleanup; exit \$status" 0 1 2 3 15
++
++# get standard environment, filters and checks
++. ./common.rc
++. ./common.filter
++
++_supported_fmt generic
++_supported_proto generic
++_supported_os Linux
++
++
++size=128M
++
++echo
++echo "== Single request =="
++_make_test_img $size
++$QEMU_IO -c "multiwrite 0 4k" "$TEST_IMG" | _filter_qemu_io
++
++echo
++echo "== verify pattern =="
++$QEMU_IO -c "read -P 0xcd 0 4k" "$TEST_IMG" | _filter_qemu_io
++$QEMU_IO -c "read -P 0 4k 4k" "$TEST_IMG" | _filter_qemu_io
++
++echo
++echo "== Sequential requests =="
++_make_test_img $size
++$QEMU_IO -c "multiwrite 0 4k ; 4k 4k" "$TEST_IMG" | _filter_qemu_io
++
++echo
++echo "== verify pattern =="
++$QEMU_IO -c "read -P 0xcd 0 4k" "$TEST_IMG" | _filter_qemu_io
++$QEMU_IO -c "read -P 0xce 4k 4k" "$TEST_IMG" | _filter_qemu_io
++$QEMU_IO -c "read -P 0 8k 4k" "$TEST_IMG" | _filter_qemu_io
++
++echo
++echo "== Superset overlapping requests =="
++_make_test_img $size
++$QEMU_IO -c "multiwrite 0 4k ; 1k 2k" "$TEST_IMG" | _filter_qemu_io
++
++echo
++echo "== verify pattern =="
++# Order of overlapping in-flight requests is not guaranteed so we cannot verify
++# [1k, 3k) since it could have either pattern 0xcd or 0xce.
++$QEMU_IO -c "read -P 0xcd 0 1k" "$TEST_IMG" | _filter_qemu_io
++$QEMU_IO -c "read -P 0xcd 3k 1k" "$TEST_IMG" | _filter_qemu_io
++$QEMU_IO -c "read -P 0 4k 4k" "$TEST_IMG" | _filter_qemu_io
++
++echo
++echo "== Subset overlapping requests =="
++_make_test_img $size
++$QEMU_IO -c "multiwrite 1k 2k ; 0k 4k" "$TEST_IMG" | _filter_qemu_io
++
++echo
++echo "== verify pattern =="
++# Order of overlapping in-flight requests is not guaranteed so we cannot verify
++# [1k, 3k) since it could have either pattern 0xcd or 0xce.
++$QEMU_IO -c "read -P 0xce 0 1k" "$TEST_IMG" | _filter_qemu_io
++$QEMU_IO -c "read -P 0xce 3k 1k" "$TEST_IMG" | _filter_qemu_io
++$QEMU_IO -c "read -P 0 4k 4k" "$TEST_IMG" | _filter_qemu_io
++
++echo
++echo "== Head overlapping requests =="
++_make_test_img $size
++$QEMU_IO -c "multiwrite 0k 2k ; 0k 4k" "$TEST_IMG" | _filter_qemu_io
++
++echo
++echo "== verify pattern =="
++# Order of overlapping in-flight requests is not guaranteed so we cannot verify
++# [0k, 2k) since it could have either pattern 0xcd or 0xce.
++$QEMU_IO -c "read -P 0xce 2k 2k" "$TEST_IMG" | _filter_qemu_io
++$QEMU_IO -c "read -P 0 4k 4k" "$TEST_IMG" | _filter_qemu_io
++
++echo
++echo "== Tail overlapping requests =="
++_make_test_img $size
++$QEMU_IO -c "multiwrite 2k 2k ; 0k 4k" "$TEST_IMG" | _filter_qemu_io
++
++echo
++echo "== verify pattern =="
++# Order of overlapping in-flight requests is not guaranteed so we cannot verify
++# [2k, 4k) since it could have either pattern 0xcd or 0xce.
++$QEMU_IO -c "read -P 0xce 0k 2k" "$TEST_IMG" | _filter_qemu_io
++$QEMU_IO -c "read -P 0 4k 4k" "$TEST_IMG" | _filter_qemu_io
++
++echo
++echo "== Disjoint requests =="
++_make_test_img $size
++$QEMU_IO -c "multiwrite 0 4k ; 64k 4k" "$TEST_IMG" | _filter_qemu_io
++
++echo
++echo "== verify pattern =="
++$QEMU_IO -c "read -P 0xcd 0 4k" "$TEST_IMG" | _filter_qemu_io
++$QEMU_IO -c "read -P 0 4k 60k" "$TEST_IMG" | _filter_qemu_io
++$QEMU_IO -c "read -P 0xce 64k 4k" "$TEST_IMG" | _filter_qemu_io
++$QEMU_IO -c "read -P 0 68k 4k" "$TEST_IMG" | _filter_qemu_io
++
++# success, all done
++echo "*** done"
++rm -f $seq.full
++status=0
+diff --git a/tests/qemu-iotests/100.out b/tests/qemu-iotests/100.out
+new file mode 100644
+index 0000000..2d6e9f0
+--- /dev/null
++++ b/tests/qemu-iotests/100.out
+@@ -0,0 +1,89 @@
++QA output created by 100
++
++== Single request ==
++Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=134217728 
++wrote 4096/4096 bytes at offset 0
++4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++
++== verify pattern ==
++read 4096/4096 bytes at offset 0
++4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++read 4096/4096 bytes at offset 4096
++4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++
++== Sequential requests ==
++Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=134217728 
++wrote 8192/8192 bytes at offset 0
++8 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++
++== verify pattern ==
++read 4096/4096 bytes at offset 0
++4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++read 4096/4096 bytes at offset 4096
++4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++read 4096/4096 bytes at offset 8192
++4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++
++== Superset overlapping requests ==
++Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=134217728 
++wrote 6144/6144 bytes at offset 0
++6 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++
++== verify pattern ==
++read 1024/1024 bytes at offset 0
++1 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++read 1024/1024 bytes at offset 3072
++1 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++read 4096/4096 bytes at offset 4096
++4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++
++== Subset overlapping requests ==
++Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=134217728 
++wrote 6144/6144 bytes at offset 1024
++6 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++
++== verify pattern ==
++read 1024/1024 bytes at offset 0
++1 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++read 1024/1024 bytes at offset 3072
++1 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++read 4096/4096 bytes at offset 4096
++4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++
++== Head overlapping requests ==
++Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=134217728 
++wrote 6144/6144 bytes at offset 0
++6 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++
++== verify pattern ==
++read 2048/2048 bytes at offset 2048
++2 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++read 4096/4096 bytes at offset 4096
++4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++
++== Tail overlapping requests ==
++Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=134217728 
++wrote 6144/6144 bytes at offset 2048
++6 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++
++== verify pattern ==
++read 2048/2048 bytes at offset 0
++2 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++read 4096/4096 bytes at offset 4096
++4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++
++== Disjoint requests ==
++Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=134217728 
++wrote 8192/8192 bytes at offset 0
++8 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++
++== verify pattern ==
++read 4096/4096 bytes at offset 0
++4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++read 61440/61440 bytes at offset 4096
++60 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++read 4096/4096 bytes at offset 65536
++4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++read 4096/4096 bytes at offset 69632
++4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
++*** done
+diff --git a/tests/qemu-iotests/group b/tests/qemu-iotests/group
+index e25e992..93f042b 100644
+--- a/tests/qemu-iotests/group
++++ b/tests/qemu-iotests/group
+@@ -100,4 +100,5 @@
+ 091 rw auto quick
+ 092 rw auto quick
+ 095 rw auto quick
++100 rw auto quick
+ 101 rw auto quick
+-- 
+1.8.3.1
+

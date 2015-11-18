@@ -1,0 +1,68 @@
+From c1045c270d3ec70048d6e4e213bfd7635df821b9 Mon Sep 17 00:00:00 2001
+From: Eduardo Habkost <ehabkost@redhat.com>
+Date: Fri, 5 Sep 2014 19:51:40 +0200
+Subject: [PATCH 01/14] target-i386: Reject invalid CPU feature names on the command-line
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Message-id: <1409946700-18370-1-git-send-email-ehabkost@redhat.com>
+Patchwork-id: 60884
+O-Subject: [RHEV7.1 qemu-kvm-rhev PATCH] target-i386: Reject invalid CPU feature names on the command-line
+Bugzilla: 1055532
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Igor Mammedov <imammedo@redhat.com>
+RH-Acked-by: Amos Kong <akong@redhat.com>
+
+Instead of simply printing a warning, report an error when invalid CPU
+options are provided on the CPU model string.
+
+Signed-off-by: Eduardo Habkost <ehabkost@redhat.com>
+Reviewed-by: Igor Mammedov <imammedo@redhat.com>
+Signed-off-by: Andreas Färber <afaerber@suse.de>
+(cherry picked from commit c00c94abbdb82c39c22b6dd72875aa1ae0f4b2c0)
+Signed-off-by: Eduardo Habkost <ehabkost@redhat.com>
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ target-i386/cpu.c |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/target-i386/cpu.c b/target-i386/cpu.c
+index f5d8d9a..1139ed7 100644
+--- a/target-i386/cpu.c
++++ b/target-i386/cpu.c
+@@ -593,7 +593,8 @@ static bool lookup_feature(uint32_t *pval, const char *s, const char *e,
+ }
+ 
+ static void add_flagname_to_bitmaps(const char *flagname,
+-                                    FeatureWordArray words)
++                                    FeatureWordArray words,
++                                    Error **errp)
+ {
+     FeatureWord w;
+     for (w = 0; w < FEATURE_WORDS; w++) {
+@@ -604,7 +605,7 @@ static void add_flagname_to_bitmaps(const char *flagname,
+         }
+     }
+     if (w == FEATURE_WORDS) {
+-        fprintf(stderr, "CPU feature %s not found\n", flagname);
++        error_setg(errp, "CPU feature %s not found", flagname);
+     }
+ }
+ 
+@@ -1792,9 +1793,9 @@ static void x86_cpu_parse_featurestr(CPUState *cs, char *features,
+     while (featurestr) {
+         char *val;
+         if (featurestr[0] == '+') {
+-            add_flagname_to_bitmaps(featurestr + 1, plus_features);
++            add_flagname_to_bitmaps(featurestr + 1, plus_features, &local_err);
+         } else if (featurestr[0] == '-') {
+-            add_flagname_to_bitmaps(featurestr + 1, minus_features);
++            add_flagname_to_bitmaps(featurestr + 1, minus_features, &local_err);
+         } else if ((val = strchr(featurestr, '='))) {
+             *val = 0; val++;
+             feat2prop(featurestr);
+-- 
+1.7.1
+

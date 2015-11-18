@@ -1,0 +1,115 @@
+From 04231c41ab591aabe5b5dfdf41a7a415b8f2de07 Mon Sep 17 00:00:00 2001
+From: dgibson <dgibson@redhat.com>
+Date: Wed, 29 Oct 2014 05:04:08 +0100
+Subject: [PATCH 10/48] vga: Make fb endian a common state variable
+
+Message-id: <1414559050-21089-10-git-send-email-dgibson@redhat.com>
+Patchwork-id: 61982
+O-Subject: [RHEL 7.1 qemu-kvm-rhev 09/11] vga: Make fb endian a common state variable
+Bugzilla: 1146809
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Gerd Hoffmann <kraxel@redhat.com>
+
+Signed-off-by: David Gibson <dgibson@redhat.com>
+
+commit 2c7d8736af209c7e5840c16a9167ad954774ce4c
+Author: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date:   Mon Jul 7 09:50:12 2014 +1000
+
+    vga: Make fb endian a common state variable
+
+    And initialize it based on target endian
+
+    Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+    Signed-off-by: Gerd Hoffmann <kraxel@redhat.com>
+    Reviewed-by: David Gibson <david@gibson.dropbear.id.au>
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/display/vga.c     | 32 +++++++++++++++++++-------------
+ hw/display/vga_int.h |  1 +
+ 2 files changed, 20 insertions(+), 13 deletions(-)
+
+diff --git a/hw/display/vga.c b/hw/display/vga.c
+index b0e61b5..90b771e 100644
+--- a/hw/display/vga.c
++++ b/hw/display/vga.c
+@@ -1465,16 +1465,11 @@ static void vga_draw_graphic(VGACommonState *s, int full_update)
+     int disp_width, multi_scan, multi_run;
+     uint8_t *d;
+     uint32_t v, addr1, addr;
+-    vga_draw_line_func *vga_draw_line;
+-#if defined(TARGET_WORDS_BIGENDIAN)
+-    static const bool big_endian_fb = true;
+-#else
+-    static const bool big_endian_fb = false;
+-#endif
+-#if defined(HOST_WORDS_BIGENDIAN)
+-    static const bool byteswap = !big_endian_fb;
++    vga_draw_line_func *vga_draw_line = NULL;
++#ifdef HOST_WORDS_BIGENDIAN
++    bool byteswap = !s->big_endian_fb;
+ #else
+-    static const bool byteswap = big_endian_fb;
++    bool byteswap = s->big_endian_fb;
+ #endif
+ 
+     full_update |= update_basic_params(s);
+@@ -1573,19 +1568,19 @@ static void vga_draw_graphic(VGACommonState *s, int full_update)
+             bits = 8;
+             break;
+         case 15:
+-            v = big_endian_fb ? VGA_DRAW_LINE15_BE : VGA_DRAW_LINE15_LE;
++            v = s->big_endian_fb ? VGA_DRAW_LINE15_BE : VGA_DRAW_LINE15_LE;
+             bits = 16;
+             break;
+         case 16:
+-            v = big_endian_fb ? VGA_DRAW_LINE16_BE : VGA_DRAW_LINE16_LE;
++            v = s->big_endian_fb ? VGA_DRAW_LINE16_BE : VGA_DRAW_LINE16_LE;
+             bits = 16;
+             break;
+         case 24:
+-            v = big_endian_fb ? VGA_DRAW_LINE24_BE : VGA_DRAW_LINE24_LE;
++            v = s->big_endian_fb ? VGA_DRAW_LINE24_BE : VGA_DRAW_LINE24_LE;
+             bits = 24;
+             break;
+         case 32:
+-            v = big_endian_fb ? VGA_DRAW_LINE32_BE : VGA_DRAW_LINE32_LE;
++            v = s->big_endian_fb ? VGA_DRAW_LINE32_BE : VGA_DRAW_LINE32_LE;
+             bits = 32;
+             break;
+         }
+@@ -2128,6 +2123,17 @@ void vga_common_init(VGACommonState *s, Object *obj, bool global_vmstate)
+         s->update_retrace_info = vga_precise_update_retrace_info;
+         break;
+     }
++
++    /*
++     * Set default fb endian based on target, should probably be turned
++     * into a device attribute set by the machine/platform to remove
++     * all target endian dependencies from this file.
++     */
++#ifdef TARGET_WORDS_BIGENDIAN
++    s->big_endian_fb = true;
++#else
++    s->big_endian_fb = false;
++#endif
+     vga_dirty_log_start(s);
+ }
+ 
+diff --git a/hw/display/vga_int.h b/hw/display/vga_int.h
+index 4cef380..e686989 100644
+--- a/hw/display/vga_int.h
++++ b/hw/display/vga_int.h
+@@ -156,6 +156,7 @@ typedef struct VGACommonState {
+     const GraphicHwOps *hw_ops;
+     bool full_update_text;
+     bool full_update_gfx;
++    bool big_endian_fb;
+     /* hardware mouse cursor support */
+     uint32_t invalidated_y_table[VGA_MAX_HEIGHT / 32];
+     void (*cursor_invalidate)(struct VGACommonState *s);
+-- 
+1.8.3.1
+

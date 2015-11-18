@@ -1,0 +1,46 @@
+From 05a67164fc8e323a6cb229c1f1249baf303f75e3 Mon Sep 17 00:00:00 2001
+From: Gerd Hoffmann <kraxel@redhat.com>
+Date: Tue, 18 Nov 2014 13:09:19 +0100
+Subject: [PATCH 03/10] usb-host: fix usb_host_speed_compat tyops
+
+Message-id: <1416316159-29182-2-git-send-email-kraxel@redhat.com>
+Patchwork-id: 62432
+O-Subject: [RHEL-7.1 qemu-kvm-rhev PATCH 1/1] usb-host: fix usb_host_speed_compat tyops
+Bugzilla: 1160504
+RH-Acked-by: Marcel Apfelbaum <marcel.a@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+
+Signed-off-by: Gerd Hoffmann <kraxel@redhat.com>
+Reviewed-by: Gonglei <arei.gonglei@huawei.com>
+(cherry picked from commit 79ae25af1569a50a0ec799901a1bb280c088f121)
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/usb/host-libusb.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/hw/usb/host-libusb.c b/hw/usb/host-libusb.c
+index c189147..69213e9 100644
+--- a/hw/usb/host-libusb.c
++++ b/hw/usb/host-libusb.c
+@@ -743,13 +743,13 @@ static void usb_host_speed_compat(USBHostDevice *s)
+ 
+     udev->speedmask = (1 << udev->speed);
+     if (udev->speed == USB_SPEED_SUPER && compat_high) {
+-        udev->speedmask |= USB_SPEED_HIGH;
++        udev->speedmask |= USB_SPEED_MASK_HIGH;
+     }
+     if (udev->speed == USB_SPEED_SUPER && compat_full) {
+-        udev->speedmask |= USB_SPEED_FULL;
++        udev->speedmask |= USB_SPEED_MASK_FULL;
+     }
+     if (udev->speed == USB_SPEED_HIGH && compat_full) {
+-        udev->speedmask |= USB_SPEED_FULL;
++        udev->speedmask |= USB_SPEED_MASK_FULL;
+     }
+ }
+ 
+-- 
+1.8.3.1
+

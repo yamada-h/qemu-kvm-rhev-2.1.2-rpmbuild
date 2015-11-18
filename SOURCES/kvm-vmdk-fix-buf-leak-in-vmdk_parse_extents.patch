@@ -1,0 +1,45 @@
+From 454a1847d20ac3cec4488b21c7c6fbbf92d407d8 Mon Sep 17 00:00:00 2001
+From: Fam Zheng <famz@redhat.com>
+Date: Thu, 13 Nov 2014 04:40:24 +0100
+Subject: [PATCH 21/48] vmdk: fix buf leak in vmdk_parse_extents()
+
+Message-id: <1415853625-15050-7-git-send-email-famz@redhat.com>
+Patchwork-id: 62349
+O-Subject: [RHEL-7.1 qemu-kvm-rhev PATCH v3 6/7] vmdk: fix buf leak in vmdk_parse_extents()
+Bugzilla: 1132385
+RH-Acked-by: Jeffrey Cody <jcody@redhat.com>
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+RH-Acked-by: Max Reitz <mreitz@redhat.com>
+
+From: Stefan Hajnoczi <stefanha@redhat.com>
+
+vmdk_open_sparse() does not take ownership of buf so the caller always
+needs to free it.
+
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Reviewed-by: Max Reitz <mreitz@redhat.com>
+Reviewed-by: Fam Zheng <famz@redhat.com>
+(cherry picked from commit b6b1d31f098eef8cd13556d343e46c213fac972a)
+Signed-off-by: Fam Zheng <famz@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ block/vmdk.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/block/vmdk.c b/block/vmdk.c
+index 1512487..c5d12f4 100644
+--- a/block/vmdk.c
++++ b/block/vmdk.c
+@@ -848,8 +848,8 @@ static int vmdk_parse_extents(const char *desc, BlockDriverState *bs,
+             } else {
+                 ret = vmdk_open_sparse(bs, extent_file, bs->open_flags, buf, errp);
+             }
++            g_free(buf);
+             if (ret) {
+-                g_free(buf);
+                 bdrv_unref(extent_file);
+                 return ret;
+             }
+-- 
+1.8.3.1
+

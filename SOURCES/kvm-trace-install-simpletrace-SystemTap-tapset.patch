@@ -1,0 +1,87 @@
+From 3a1357b98941bac4f3026c8b4ca3d9db99efd5d5 Mon Sep 17 00:00:00 2001
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Date: Tue, 21 Oct 2014 16:17:21 +0200
+Subject: [PATCH 17/21] trace: install simpletrace SystemTap tapset
+
+Message-id: <1413908245-19510-5-git-send-email-stefanha@redhat.com>
+Patchwork-id: 61767
+O-Subject: [RHEL7.1 qemu-kvm-rhev PATCH 4/8] trace: install simpletrace SystemTap tapset
+Bugzilla: 1155015
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+
+The simpletrace SystemTap tapset outputs simpletrace binary traces for
+SystemTap probes.  This is useful because SystemTap has no default way
+to format or store traces.  The simpletrace SystemTap tapset provides an
+easy way to store traces.
+
+The simpletrace.py tool or custom Python scripts using the
+simpletrace.py API can analyze SystemTap these traces:
+
+  $ ./configure --enable-trace-backends=dtrace ...
+  $ make && make install
+  $ stap -e 'probe qemu.system.x86_64.simpletrace.* {}' \
+         -c qemu-system-x86_64 >/tmp/trace.out
+  $ scripts/simpletrace.py --no-header trace-events /tmp/trace.out
+  g_malloc 4.531 pid=15519 size=0xb ptr=0x7f8639c10470
+  g_malloc 3.264 pid=15519 size=0x300 ptr=0x7f8639c10490
+  g_free 5.155 pid=15519 ptr=0x7f8639c0f7b0
+
+Note that, unlike qemu-system-x86_64.stp and
+qemu-system-x86_64.stp-installed, only one file is needed since the
+simpletrace SystemTap tapset does not reference the QEMU binary by path.
+Therefore it doesn't matter whether the QEMU binary is installed or not.
+
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit e0b2fd0efb4d282bc6fa0ed5397f472298a66ca2)
+
+Added qemu-kvm.spec.template line to include qemu-kvm-simpletrace.stp in
+the RPM.  This must be done in this commit to avoid an rpmbuild
+unpackaged file error.
+
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ Makefile.target               | 10 +++++++++-
+ redhat/qemu-kvm.spec.template | 10 +++++++++-
+ 2 files changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/Makefile.target b/Makefile.target
+index 137d0b0..44fa6a2 100644
+--- a/Makefile.target
++++ b/Makefile.target
+@@ -38,7 +38,7 @@ config-target.h: config-target.h-timestamp
+ config-target.h-timestamp: config-target.mak
+ 
+ ifdef CONFIG_TRACE_SYSTEMTAP
+-stap: $(QEMU_PROG).stp-installed $(QEMU_PROG).stp
++stap: $(QEMU_PROG).stp-installed $(QEMU_PROG).stp $(QEMU_PROG)-simpletrace.stp
+ 
+ ifdef CONFIG_USER_ONLY
+ TARGET_TYPE=user
+@@ -64,6 +64,13 @@ $(QEMU_PROG).stp: $(SRC_PATH)/trace-events
+ 		--target-type=$(TARGET_TYPE) \
+ 		< $< > $@,"  GEN   $(TARGET_DIR)$(QEMU_PROG).stp")
+ 
++$(QEMU_PROG)-simpletrace.stp: $(SRC_PATH)/trace-events
++	$(call quiet-command,$(TRACETOOL) \
++		--format=simpletrace-stap \
++		--backends=$(TRACE_BACKENDS) \
++		--probe-prefix=qemu.$(TARGET_TYPE).$(TARGET_NAME) \
++		< $< > $@,"  GEN   $(TARGET_DIR)$(QEMU_PROG)-simpletrace.stp")
++
+ else
+ stap:
+ endif
+@@ -191,6 +198,7 @@ endif
+ ifdef CONFIG_TRACE_SYSTEMTAP
+ 	$(INSTALL_DIR) "$(DESTDIR)$(qemu_datadir)/../systemtap/tapset"
+ 	$(INSTALL_DATA) $(QEMU_PROG).stp-installed "$(DESTDIR)$(qemu_datadir)/../systemtap/tapset/$(QEMU_PROG).stp"
++	$(INSTALL_DATA) $(QEMU_PROG)-simpletrace.stp "$(DESTDIR)$(qemu_datadir)/../systemtap/tapset/$(QEMU_PROG)-simpletrace.stp"
+ endif
+ 
+ GENERATED_HEADERS += config-target.h
+-- 
+1.8.3.1
+

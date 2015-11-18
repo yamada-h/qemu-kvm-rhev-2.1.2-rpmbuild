@@ -1,0 +1,45 @@
+From b44b27a06a194464c113297507dbc389d8d6c62b Mon Sep 17 00:00:00 2001
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Date: Fri, 7 Nov 2014 12:59:07 -0500
+Subject: [PATCH 04/10] hw/arm/boot: load DTB as a ROM image
+
+Message-id: <1415383153-28089-5-git-send-email-wei@redhat.com>
+Patchwork-id: 62218
+O-Subject: hw/arm/boot: load DTB as a ROM
+        image
+Bugzilla: 1160325
+RH-Acked-by: Andrew Jones <drjones@redhat.com>
+
+In order to make the device tree blob (DTB) available in memory not only at
+first boot, but also after system reset, use rom_blob_add_fixed() to install
+it into memory.
+
+Reviewed-by: Peter Maydell <peter.maydell@linaro.org>
+Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Message-id: 1410453915-9344-2-git-send-email-ard.biesheuvel@linaro.org
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+
+Signed-off-by: Wei Huang <wei@redhat.com>
+---
+ hw/arm/boot.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/hw/arm/boot.c b/hw/arm/boot.c
+index 3d1f4a2..668920a 100644
+--- a/hw/arm/boot.c
++++ b/hw/arm/boot.c
+@@ -396,7 +396,10 @@ static int load_dtb(hwaddr addr, const struct arm_boot_info *binfo)
+ 
+     qemu_fdt_dumpdtb(fdt, size);
+ 
+-    cpu_physical_memory_write(addr, fdt, size);
++    /* Put the DTB into the memory map as a ROM image: this will ensure
++     * the DTB is copied again upon reset, even if addr points into RAM.
++     */
++    rom_add_blob_fixed("dtb", fdt, size, addr);
+ 
+     g_free(fdt);
+ 
+-- 
+1.8.3.1
+

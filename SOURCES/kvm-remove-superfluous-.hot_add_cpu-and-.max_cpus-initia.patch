@@ -1,0 +1,129 @@
+From afb57d2751616803f7d900bb9150c30546ab6de8 Mon Sep 17 00:00:00 2001
+From: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+Date: Thu, 3 Jul 2014 14:15:56 +0200
+Subject: [PATCH 192/212] remove superfluous .hot_add_cpu and .max_cpus initializers (RHEV-7.1 only)
+
+RH-Author: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+Message-id: <1404396958-13568-3-git-send-email-dgilbert@redhat.com>
+Patchwork-id: 59470
+O-Subject: [RHEL-7.1 qemu-kvm-rhev PATCH v5 2/4] remove superfluous .hot_add_cpu and .max_cpus initializers (RHEV-7.1 only)
+Bugzilla: 1085950
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Eduardo Habkost <ehabkost@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Bandan Das <bsd@redhat.com>
+
+From: "Dr. David Alan Gilbert" <dgilbert@redhat.com>
+
+The RHEL machine type structures all include PC_DEFAULT_MACHINE_OPTIONS.
+The macro is defined as:
+
+  #define PC_DEFAULT_MACHINE_OPTIONS \
+      PC_COMMON_MACHINE_OPTIONS, \
+      .hot_add_cpu = pc_hot_add_cpu, \
+      .max_cpus = 255
+
+Hence there's no need (and it is actually confusing) to re-initialize
+those same two members with open-coded designated initializers. Remove
+the
+latter.
+
+This is a qemu-kvm-rhev-only patch (RHEL-7.1+), but it can be considered
+the continuation of upstream qemu commit a0dba644 ("pc: reduce
+duplication, fix PIIX descriptions"), originally released in v1.7.0.
+
+Signed-off-by: Laszlo Ersek <lersek@redhat.com>
+---
+ hw/i386/pc_piix.c | 14 --------------
+ hw/i386/pc_q35.c  |  2 --
+ 2 files changed, 16 deletions(-)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/i386/pc_piix.c |   14 --------------
+ hw/i386/pc_q35.c  |    2 --
+ 2 files changed, 0 insertions(+), 16 deletions(-)
+
+diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
+index 6ce7716..5caf5de 100644
+--- a/hw/i386/pc_piix.c
++++ b/hw/i386/pc_piix.c
+@@ -983,8 +983,6 @@ static QEMUMachine pc_machine_rhel700 = {
+     .alias = "pc",
+     .desc = "RHEL 7.0.0 PC (i440FX + PIIX, 1996)",
+     .init = pc_init_rhel700,
+-    .hot_add_cpu = pc_hot_add_cpu,
+-    .max_cpus = 255,
+     .is_default = 1,
+     .default_machine_opts = "firmware=bios-256k.bin",
+     .compat_props = (GlobalProperty[]) {
+@@ -1163,8 +1161,6 @@ static QEMUMachine pc_machine_rhel650 = {
+     .name = "rhel6.5.0",
+     .desc = "RHEL 6.5.0 PC",
+     .init = pc_init_rhel650,
+-    .hot_add_cpu = pc_hot_add_cpu,
+-    .max_cpus = 255,
+     .compat_props = (GlobalProperty[]) {
+         PC_RHEL6_5_COMPAT,
+         { /* end of list */ }
+@@ -1212,8 +1208,6 @@ static QEMUMachine pc_machine_rhel640 = {
+     .name = "rhel6.4.0",
+     .desc = "RHEL 6.4.0 PC",
+     .init = pc_init_rhel640,
+-    .hot_add_cpu = pc_hot_add_cpu,
+-    .max_cpus = 255,
+     .compat_props = (GlobalProperty[]) {
+         PC_RHEL6_4_COMPAT,
+         { /* end of list */ }
+@@ -1288,8 +1282,6 @@ static QEMUMachine pc_machine_rhel630 = {
+     .name = "rhel6.3.0",
+     .desc = "RHEL 6.3.0 PC",
+     .init = pc_init_rhel630,
+-    .hot_add_cpu = pc_hot_add_cpu,
+-    .max_cpus = 255,
+     .compat_props = (GlobalProperty[]) {
+         PC_RHEL6_3_COMPAT,
+         { /* end of list */ }
+@@ -1320,8 +1312,6 @@ static QEMUMachine pc_machine_rhel620 = {
+     .name = "rhel6.2.0",
+     .desc = "RHEL 6.2.0 PC",
+     .init = pc_init_rhel620,
+-    .hot_add_cpu = pc_hot_add_cpu,
+-    .max_cpus = 255,
+     .compat_props = (GlobalProperty[]) {
+         PC_RHEL6_2_COMPAT,
+         { /* end of list */ }
+@@ -1393,8 +1383,6 @@ static QEMUMachine pc_machine_rhel610 = {
+     .name = "rhel6.1.0",
+     .desc = "RHEL 6.1.0 PC",
+     .init = pc_init_rhel610,
+-    .hot_add_cpu = pc_hot_add_cpu,
+-    .max_cpus = 255,
+     .compat_props = (GlobalProperty[]) {
+         PC_RHEL6_1_COMPAT,
+         { /* end of list */ }
+@@ -1433,8 +1421,6 @@ static QEMUMachine pc_machine_rhel600 = {
+     .name = "rhel6.0.0",
+     .desc = "RHEL 6.0.0 PC",
+     .init = pc_init_rhel600,
+-    .hot_add_cpu = pc_hot_add_cpu,
+-    .max_cpus = 255,
+     .compat_props = (GlobalProperty[]) {
+         PC_RHEL6_0_COMPAT,
+         { /* end of list */ }
+diff --git a/hw/i386/pc_q35.c b/hw/i386/pc_q35.c
+index df60f2e..dbf9983 100644
+--- a/hw/i386/pc_q35.c
++++ b/hw/i386/pc_q35.c
+@@ -476,8 +476,6 @@ static QEMUMachine pc_q35_machine_rhel700 = {
+     .alias = "q35",
+     .desc = "RHEL-7.0.0 PC (Q35 + ICH9, 2009)",
+     .init = pc_q35_init_rhel700,
+-    .hot_add_cpu = pc_hot_add_cpu,
+-    .max_cpus = 255,
+     .default_machine_opts = "firmware=bios-256k.bin",
+ };
+ 
+-- 
+1.7.1
+

@@ -1,0 +1,49 @@
+From cce8b902be7ca63a669e7a5ee62722b24fef01c4 Mon Sep 17 00:00:00 2001
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Date: Mon, 20 Oct 2014 16:02:48 +0200
+Subject: [PATCH 10/21] cleanup-trace-events.pl: Tighten search for trace event
+ call
+
+Message-id: <1413820971-23552-5-git-send-email-stefanha@redhat.com>
+Patchwork-id: 61751
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH v2 4/7] cleanup-trace-events.pl: Tighten search for trace event call
+Bugzilla: 1144325
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+
+From: Markus Armbruster <armbru@redhat.com>
+
+The script can get fooled too easily.  For instance, it finds
+trace_megasas_io_read_start when looking for trace_megasas_io_read,
+and incorrectly concludes that event megasas_io_read is used.
+
+Supply -w to git-grep to tighten the search.
+
+Signed-off-by: Markus Armbruster <armbru@redhat.com>
+Message-id: 1411476811-24251-2-git-send-email-armbru@redhat.com
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit 88ed34ff5ed6f94ebe597b320f130e150dc91557)
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Acked-by: Laszlo Ersek <lersek@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ scripts/cleanup-trace-events.pl | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/scripts/cleanup-trace-events.pl b/scripts/cleanup-trace-events.pl
+index cffbf16..7e808ef 100755
+--- a/scripts/cleanup-trace-events.pl
++++ b/scripts/cleanup-trace-events.pl
+@@ -25,7 +25,7 @@ sub out {
+ 
+ while (<>) {
+     if (/^(disable )?([a-z_0-9]+)\(/) {
+-        open GREP, '-|', 'git', 'grep', '-l', "trace_$2"
++        open GREP, '-|', 'git', 'grep', '-lw', "trace_$2"
+             or die "run git grep: $!";
+         my $fname;
+         while ($fname = <GREP>) {
+-- 
+1.8.3.1
+

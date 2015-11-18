@@ -1,0 +1,58 @@
+From 2ed5d3526933908fe8a4e3b48a4005b95601eccf Mon Sep 17 00:00:00 2001
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Date: Tue, 21 Oct 2014 16:17:19 +0200
+Subject: [PATCH 15/21] trace: extract stap_escape() function for reuse
+
+Message-id: <1413908245-19510-3-git-send-email-stefanha@redhat.com>
+Patchwork-id: 61765
+O-Subject: [RHEL7.1 qemu-kvm-rhev PATCH 2/8] trace: extract stap_escape() function for reuse
+Bugzilla: 1155015
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+
+SystemTap reserved words sometimes conflict with QEMU variable names.
+We escape them to prevent conflicts.
+
+Move escaping into its own function so the next patch can reuse it.
+
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit a76ccf3c1cb06576af091c5ac8bc264515b1bb7f)
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ scripts/tracetool/format/stap.py | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/scripts/tracetool/format/stap.py b/scripts/tracetool/format/stap.py
+index e24abf7..9e780f1 100644
+--- a/scripts/tracetool/format/stap.py
++++ b/scripts/tracetool/format/stap.py
+@@ -27,6 +27,13 @@ RESERVED_WORDS = (
+     )
+ 
+ 
++def stap_escape(identifier):
++    # Append underscore to reserved keywords
++    if identifier in RESERVED_WORDS:
++        return identifier + '_'
++    return identifier
++
++
+ def generate(events, backend):
+     events = [e for e in events
+               if "disable" not in e.properties]
+@@ -45,9 +52,7 @@ def generate(events, backend):
+         i = 1
+         if len(e.args) > 0:
+             for name in e.args.names():
+-                # Append underscore to reserved keywords
+-                if name in RESERVED_WORDS:
+-                    name += '_'
++                name = stap_escape(name)
+                 out('  %s = $arg%d;' % (name, i))
+                 i += 1
+ 
+-- 
+1.8.3.1
+

@@ -1,0 +1,46 @@
+From 58e11495495647e0dea529de2271991d877be1f7 Mon Sep 17 00:00:00 2001
+From: Markus Armbruster <armbru@redhat.com>
+Date: Mon, 11 Aug 2014 07:54:49 +0200
+Subject: [PATCH 15/16] rhel: virtio-net-pci.ctrl_guest_offloads=off for machine types <= 7.0
+
+Message-id: <1407743689-13553-16-git-send-email-armbru@redhat.com>
+Patchwork-id: 60516
+O-Subject: [PATCH RHEV-7.1 qemu-kvm-rhev 15/15] rhel: virtio-net-pci.ctrl_guest_offloads=off for machine types <= 7.0
+Bugzilla: 1118665
+RH-Acked-by: Eduardo Habkost <ehabkost@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+
+Update RHEL compatibility properties for upstream commit 644c985.
+
+Note the upstream bug: the upstream commit added the compatibility
+property to PC_COMPAT_1_4 even though it went in during the 1.6 cycle.
+
+Signed-off-by: Markus Armbruster <armbru@redhat.com>
+---
+ include/hw/i386/pc.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ include/hw/i386/pc.h |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/include/hw/i386/pc.h b/include/hw/i386/pc.h
+index 0c701e8..9e15ff1 100644
+--- a/include/hw/i386/pc.h
++++ b/include/hw/i386/pc.h
+@@ -568,6 +568,10 @@ bool e820_get_entry(int, uint32_t, uint64_t *, uint64_t *);
+             .driver   = "e1000",\
+             .property = "mitigation",\
+             .value    = "off",\
++        },{ \
++            .driver   = "virtio-net-pci", \
++            .property = "ctrl_guest_offloads", \
++            .value    = "off", \
+         }
+ 
+ #endif
+-- 
+1.7.1
+

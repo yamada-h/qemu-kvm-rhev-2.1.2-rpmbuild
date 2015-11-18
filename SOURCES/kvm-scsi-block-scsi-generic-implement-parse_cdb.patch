@@ -1,0 +1,122 @@
+From 3f60d6df4a9d23cba0261bca0d05281e67228a87 Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Fri, 12 Sep 2014 12:08:56 +0200
+Subject: [PATCH 10/14] scsi-block, scsi-generic: implement parse_cdb
+
+Message-id: <1410523737-12968-5-git-send-email-pbonzini@redhat.com>
+Patchwork-id: 61027
+O-Subject: [RHEL 7.1 qemu-kvm-rhev PATCH 4/5] scsi-block, scsi-generic: implement parse_cdb
+Bugzilla: 1123349
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+
+The callback lets the bus provide the direction and transfer count
+for passthrough commands, enabling passthrough of vendor-specific
+commands.
+
+Reviewed-by: Fam Zheng <famz@redhat.com>
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry-picked from commit 3e7e180ab3f970a4e5b64b5fafd57c48c98ee560)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/scsi/scsi-bus.c     |    3 +--
+ hw/scsi/scsi-disk.c    |   14 ++++++++++++++
+ hw/scsi/scsi-generic.c |    7 +++++++
+ include/hw/scsi/scsi.h |    1 +
+ 4 files changed, 23 insertions(+), 2 deletions(-)
+
+diff --git a/hw/scsi/scsi-bus.c b/hw/scsi/scsi-bus.c
+index d97d18a..6f4462b 100644
+--- a/hw/scsi/scsi-bus.c
++++ b/hw/scsi/scsi-bus.c
+@@ -9,7 +9,6 @@
+ 
+ static char *scsibus_get_dev_path(DeviceState *dev);
+ static char *scsibus_get_fw_dev_path(DeviceState *dev);
+-static int scsi_req_parse_cdb(SCSIDevice *dev, SCSICommand *cmd, uint8_t *buf);
+ static void scsi_req_dequeue(SCSIRequest *req);
+ static uint8_t *scsi_target_alloc_buf(SCSIRequest *req, size_t len);
+ static void scsi_target_free_buf(SCSIRequest *req);
+@@ -1210,7 +1209,7 @@ static uint64_t scsi_cmd_lba(SCSICommand *cmd)
+     return lba;
+ }
+ 
+-static int scsi_req_parse_cdb(SCSIDevice *dev, SCSICommand *cmd, uint8_t *buf)
++int scsi_req_parse_cdb(SCSIDevice *dev, SCSICommand *cmd, uint8_t *buf)
+ {
+     int rc;
+ 
+diff --git a/hw/scsi/scsi-disk.c b/hw/scsi/scsi-disk.c
+index 81b7276..d55521d 100644
+--- a/hw/scsi/scsi-disk.c
++++ b/hw/scsi/scsi-disk.c
+@@ -2564,6 +2564,19 @@ static SCSIRequest *scsi_block_new_request(SCSIDevice *d, uint32_t tag,
+                               hba_private);
+     }
+ }
++
++static int scsi_block_parse_cdb(SCSIDevice *d, SCSICommand *cmd,
++                                  uint8_t *buf, void *hba_private)
++{
++    SCSIDiskState *s = DO_UPCAST(SCSIDiskState, qdev, d);
++
++    if (scsi_block_is_passthrough(s, buf)) {
++        return scsi_bus_parse_cdb(&s->qdev, cmd, buf, hba_private);
++    } else {
++        return scsi_req_parse_cdb(&s->qdev, cmd, buf);
++    }
++}
++
+ #endif
+ 
+ #define DEFINE_SCSI_DISK_PROPERTIES()                                \
+@@ -2672,6 +2685,7 @@ static void scsi_block_class_initfn(ObjectClass *klass, void *data)
+     sc->init         = scsi_block_initfn;
+     sc->destroy      = scsi_destroy;
+     sc->alloc_req    = scsi_block_new_request;
++    sc->parse_cdb    = scsi_block_parse_cdb;
+     dc->fw_name = "disk";
+     dc->desc = "SCSI block device passthrough";
+     dc->reset = scsi_disk_reset;
+diff --git a/hw/scsi/scsi-generic.c b/hw/scsi/scsi-generic.c
+index 3733d2c..0b2ff90 100644
+--- a/hw/scsi/scsi-generic.c
++++ b/hw/scsi/scsi-generic.c
+@@ -490,6 +490,12 @@ static Property scsi_generic_properties[] = {
+     DEFINE_PROP_END_OF_LIST(),
+ };
+ 
++static int scsi_generic_parse_cdb(SCSIDevice *dev, SCSICommand *cmd,
++                                  uint8_t *buf, void *hba_private)
++{
++    return scsi_bus_parse_cdb(dev, cmd, buf, hba_private);
++}
++
+ static void scsi_generic_class_initfn(ObjectClass *klass, void *data)
+ {
+     DeviceClass *dc = DEVICE_CLASS(klass);
+@@ -498,6 +504,7 @@ static void scsi_generic_class_initfn(ObjectClass *klass, void *data)
+     sc->init         = scsi_generic_initfn;
+     sc->destroy      = scsi_destroy;
+     sc->alloc_req    = scsi_new_request;
++    sc->parse_cdb    = scsi_generic_parse_cdb;
+     dc->fw_name = "disk";
+     dc->desc = "pass through generic scsi device (/dev/sg*)";
+     dc->reset = scsi_generic_reset;
+diff --git a/include/hw/scsi/scsi.h b/include/hw/scsi/scsi.h
+index 4a0b860..a7a28e6 100644
+--- a/include/hw/scsi/scsi.h
++++ b/include/hw/scsi/scsi.h
+@@ -250,6 +250,7 @@ void scsi_req_unref(SCSIRequest *req);
+ 
+ int scsi_bus_parse_cdb(SCSIDevice *dev, SCSICommand *cmd, uint8_t *buf,
+                        void *hba_private);
++int scsi_req_parse_cdb(SCSIDevice *dev, SCSICommand *cmd, uint8_t *buf);
+ void scsi_req_build_sense(SCSIRequest *req, SCSISense sense);
+ void scsi_req_print(SCSIRequest *req);
+ void scsi_req_continue(SCSIRequest *req);
+-- 
+1.7.1
+

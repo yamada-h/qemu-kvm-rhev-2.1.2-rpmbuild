@@ -1,0 +1,178 @@
+From aa3b3a4ffa5fc2ec13fbbc808381bed50409aa96 Mon Sep 17 00:00:00 2001
+From: John Snow <jsnow@redhat.com>
+Date: Fri, 14 Nov 2014 22:07:28 +0100
+Subject: [PATCH 40/48] ide: make all commands go through cmd_done
+
+Message-id: <1416002855-4964-14-git-send-email-jsnow@redhat.com>
+Patchwork-id: 62398
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH v2 13/20] ide: make all commands go through cmd_done
+Bugzilla: 1024599
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+
+From: Paolo Bonzini <pbonzini@redhat.com>
+
+AHCI has code to fill in the D2H FIS trigger the IRQ all over the place.
+Centralize this in a single cmd_done callback by generalizing the existing
+async_cmd_done callback.
+
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit c7e73adb48abb9fc5cbfc4f1ce6090fbdb0bdbea)
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/ide/ahci.c     | 16 +++-------------
+ hw/ide/atapi.c    |  2 +-
+ hw/ide/core.c     | 20 +++++++++++---------
+ hw/ide/internal.h |  2 +-
+ 4 files changed, 16 insertions(+), 24 deletions(-)
+
+diff --git a/hw/ide/ahci.c b/hw/ide/ahci.c
+index 122aa82..a167253 100644
+--- a/hw/ide/ahci.c
++++ b/hw/ide/ahci.c
+@@ -969,11 +969,6 @@ static int handle_cmd(AHCIState *s, int port, int slot)
+ 
+         /* We're ready to process the command in FIS byte 2. */
+         ide_exec_cmd(&s->dev[port].port, cmd_fis[2]);
+-
+-        if ((s->dev[port].port.ifs[0].status & (READY_STAT|DRQ_STAT|BUSY_STAT)) ==
+-            READY_STAT) {
+-            ahci_write_fis_d2h(&s->dev[port], cmd_fis);
+-        }
+     }
+ 
+ out:
+@@ -1036,11 +1031,6 @@ out:
+     }
+ 
+     s->end_transfer_func(s);
+-
+-    if (!(s->status & DRQ_STAT)) {
+-        /* done with DMA */
+-        ahci_trigger_irq(ad->hba, ad, PORT_IRQ_D2H_REG_FIS);
+-    }
+ }
+ 
+ static void ahci_start_dma(IDEDMA *dma, IDEState *s,
+@@ -1102,11 +1092,11 @@ static int ahci_dma_set_unit(IDEDMA *dma, int unit)
+     return 0;
+ }
+ 
+-static void ahci_async_cmd_done(IDEDMA *dma)
++static void ahci_cmd_done(IDEDMA *dma)
+ {
+     AHCIDevice *ad = DO_UPCAST(AHCIDevice, dma, dma);
+ 
+-    DPRINTF(ad->port_no, "async cmd done\n");
++    DPRINTF(ad->port_no, "cmd done\n");
+ 
+     /* update d2h status */
+     ahci_write_fis_d2h(ad, NULL);
+@@ -1132,7 +1122,7 @@ static const IDEDMAOps ahci_dma_ops = {
+     .prepare_buf = ahci_dma_prepare_buf,
+     .rw_buf = ahci_dma_rw_buf,
+     .set_unit = ahci_dma_set_unit,
+-    .async_cmd_done = ahci_async_cmd_done,
++    .cmd_done = ahci_cmd_done,
+     .restart_cb = ahci_dma_restart_cb,
+ };
+ 
+diff --git a/hw/ide/atapi.c b/hw/ide/atapi.c
+index 3b419b3..3d92b52 100644
+--- a/hw/ide/atapi.c
++++ b/hw/ide/atapi.c
+@@ -174,9 +174,9 @@ void ide_atapi_cmd_reply_end(IDEState *s)
+ #endif
+     if (s->packet_transfer_size <= 0) {
+         /* end of transfer */
+-        ide_transfer_stop(s);
+         s->status = READY_STAT | SEEK_STAT;
+         s->nsector = (s->nsector & ~7) | ATAPI_INT_REASON_IO | ATAPI_INT_REASON_CD;
++        ide_transfer_stop(s);
+         ide_set_irq(s->bus);
+ #ifdef DEBUG_IDE_ATAPI
+         printf("status=0x%x\n", s->status);
+diff --git a/hw/ide/core.c b/hw/ide/core.c
+index b3909ee..4e8f367 100644
+--- a/hw/ide/core.c
++++ b/hw/ide/core.c
+@@ -478,12 +478,20 @@ void ide_transfer_start(IDEState *s, uint8_t *buf, int size,
+     }
+ }
+ 
++static void ide_cmd_done(IDEState *s)
++{
++    if (s->bus->dma->ops->cmd_done) {
++        s->bus->dma->ops->cmd_done(s->bus->dma);
++    }
++}
++
+ void ide_transfer_stop(IDEState *s)
+ {
+     s->end_transfer_func = ide_transfer_stop;
+     s->data_ptr = s->io_buffer;
+     s->data_end = s->io_buffer;
+     s->status &= ~DRQ_STAT;
++    ide_cmd_done(s);
+ }
+ 
+ int64_t ide_get_sector(IDEState *s)
+@@ -626,20 +634,13 @@ static void dma_buf_commit(IDEState *s)
+     qemu_sglist_destroy(&s->sg);
+ }
+ 
+-static void ide_async_cmd_done(IDEState *s)
+-{
+-    if (s->bus->dma->ops->async_cmd_done) {
+-        s->bus->dma->ops->async_cmd_done(s->bus->dma);
+-    }
+-}
+-
+ void ide_set_inactive(IDEState *s, bool more)
+ {
+     s->bus->dma->aiocb = NULL;
+     if (s->bus->dma->ops->set_inactive) {
+         s->bus->dma->ops->set_inactive(s->bus->dma, more);
+     }
+-    ide_async_cmd_done(s);
++    ide_cmd_done(s);
+ }
+ 
+ void ide_dma_error(IDEState *s)
+@@ -890,7 +891,7 @@ static void ide_flush_cb(void *opaque, int ret)
+         bdrv_acct_done(s->bs, &s->acct);
+     }
+     s->status = READY_STAT | SEEK_STAT;
+-    ide_async_cmd_done(s);
++    ide_cmd_done(s);
+     ide_set_irq(s->bus);
+ }
+ 
+@@ -1814,6 +1815,7 @@ void ide_exec_cmd(IDEBus *bus, uint32_t val)
+             s->status |= SEEK_STAT;
+         }
+ 
++        ide_cmd_done(s);
+         ide_set_irq(s->bus);
+     }
+ }
+diff --git a/hw/ide/internal.h b/hw/ide/internal.h
+index b919e96..5c19f79 100644
+--- a/hw/ide/internal.h
++++ b/hw/ide/internal.h
+@@ -433,7 +433,7 @@ struct IDEDMAOps {
+     DMAIntFunc *rw_buf;
+     DMAIntFunc *set_unit;
+     DMAStopFunc *set_inactive;
+-    DMAVoidFunc *async_cmd_done;
++    DMAVoidFunc *cmd_done;
+     DMARestartFunc *restart_cb;
+     DMAVoidFunc *reset;
+ };
+-- 
+1.8.3.1
+

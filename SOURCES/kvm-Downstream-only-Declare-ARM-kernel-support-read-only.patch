@@ -1,0 +1,37 @@
+From 9ff6384672836d719d9577e48de407a985d9414c Mon Sep 17 00:00:00 2001
+From: Wei Huang <wei@redhat.com>
+Date: Fri, 7 Nov 2014 12:59:13 -0500
+Subject: [PATCH 10/10] Downstream only: Declare ARM kernel support read-only
+ memory region
+
+Message-id: <1415383153-28089-11-git-send-email-wei@redhat.com>
+Patchwork-id: 62221
+O-Subject: [RHELSA qemu-kvm-rhev PATCH 10/10] Downstream only: Declare ARM
+        kernel support read-only memory region
+Bugzilla: 1160325
+RH-Acked-by: Andrew Jones <drjones@redhat.com>
+
+This patch declares that KVM is able to handle code and data in
+read-only memory regions. Without this patch, ARM can't support
+AAVMF per the investigation by Laszlo Ersek.
+
+Signed-off-by: Wei Huang <wei@redhat.com>
+---
+ linux-headers/asm-arm64/kvm.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/linux-headers/asm-arm64/kvm.h b/linux-headers/asm-arm64/kvm.h
+index e633ff8..f4ec5a6 100644
+--- a/linux-headers/asm-arm64/kvm.h
++++ b/linux-headers/asm-arm64/kvm.h
+@@ -37,6 +37,7 @@
+ 
+ #define __KVM_HAVE_GUEST_DEBUG
+ #define __KVM_HAVE_IRQ_LINE
++#define __KVM_HAVE_READONLY_MEM
+ 
+ #define KVM_REG_SIZE(id)						\
+ 	(1U << (((id) & KVM_REG_SIZE_MASK) >> KVM_REG_SIZE_SHIFT))
+-- 
+1.8.3.1
+

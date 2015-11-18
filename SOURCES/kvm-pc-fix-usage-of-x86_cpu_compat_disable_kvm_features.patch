@@ -1,0 +1,51 @@
+From aa876e5c6db2ed3c294939d1ced156a400e6c2f2 Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Wed, 14 Jan 2015 17:03:01 +0100
+Subject: [PATCH] pc: fix usage of x86_cpu_compat_disable_kvm_features
+
+Message-id: <1421254981-31468-1-git-send-email-pbonzini@redhat.com>
+Patchwork-id: 63293
+O-Subject: [RHEL7.1 qemu-kvm-rhev PATCH] pc: fix usage of x86_cpu_compat_disable_kvm_features
+Bugzilla: 1182233
+RH-Acked-by: Andrew Jones <drjones@redhat.com>
+RH-Acked-by: Eduardo Habkost <ehabkost@redhat.com>
+RH-Acked-by: Laszlo Ersek <lersek@redhat.com>
+RH-Acked-by: Markus Armbruster <armbru@redhat.com>
+
+KVM_FEATURE_* are bit numbers, not masks.  So we have to use them
+in a shift.
+
+Upstream patch on the way too.  Sending to RHEL first since the
+machine types are different anyway.
+
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/i386/pc_piix.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
+index 9abc86b..656dc59 100644
+--- a/hw/i386/pc_piix.c
++++ b/hw/i386/pc_piix.c
+@@ -1168,7 +1168,7 @@ static void pc_compat_rhel650(MachineState *machine)
+     x86_cpu_compat_set_features(NULL, FEAT_8000_0001_EDX, 0,
+                                 CPUID_EXT2_3DNOW | CPUID_EXT2_3DNOWEXT);
+ 
+-    x86_cpu_compat_disable_kvm_features(FEAT_KVM, KVM_FEATURE_PV_UNHALT);
++    x86_cpu_compat_disable_kvm_features(FEAT_KVM, (1 << KVM_FEATURE_PV_UNHALT));
+ 
+     rom_file_has_mr = false;
+     has_acpi_build = false;
+@@ -1294,7 +1294,7 @@ static QEMUMachine pc_machine_rhel640 = {
+ static void pc_compat_rhel630(MachineState *machine)
+ {
+     pc_compat_rhel640(machine);
+-    x86_cpu_compat_disable_kvm_features(FEAT_KVM, KVM_FEATURE_PV_EOI);
++    x86_cpu_compat_disable_kvm_features(FEAT_KVM, (1 << KVM_FEATURE_PV_EOI));
+     enable_compat_apic_id_mode();
+     x86_cpu_compat_set_features("SandyBridge", FEAT_1_ECX,
+                                 0, CPUID_EXT_TSC_DEADLINE_TIMER);
+-- 
+1.8.3.1
+

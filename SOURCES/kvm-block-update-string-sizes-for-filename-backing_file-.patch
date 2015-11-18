@@ -1,0 +1,147 @@
+From e15e861c1890b06522d3169f8f10da0e91babb80 Mon Sep 17 00:00:00 2001
+From: Jeffrey Cody <jcody@redhat.com>
+Date: Tue, 27 Jan 2015 13:11:20 +0100
+Subject: [PATCH 4/4] block: update string sizes for filename, backing_file,
+ exact_filename
+
+Message-id: <2754a0eb3ba5fbc93725f22d7ec7a343b21f2c78.1422363744.git.jcody@redhat.com>
+Patchwork-id: 63575
+O-Subject: [PATCH v4 qemu-kvm-rhel RHEL7.1 4/4] block: update string sizes for filename, backing_file, exact_filename
+Bugzilla: 1117170
+RH-Acked-by: Kevin Wolf <kwolf@redhat.com>
+RH-Acked-by: Max Reitz <mreitz@redhat.com>
+RH-Acked-by: John Snow <jsnow@redhat.com>
+
+The string field entries 'filename', 'backing_file', and
+'exact_filename' in the BlockDriverState struct are defined as 1024
+bytes.
+
+However, many places that use these values accept a maximum of PATH_MAX
+bytes, so we have a mixture of 1024 byte and PATH_MAX byte allocations.
+This patch makes the BlockDriverStruct field string sizes match usage.
+
+This patch also does a few fixes related to the size that needs to
+happen now:
+
+    * the block qapi driver is updated to use PATH_MAX bytes
+    * the qcow and qcow2 drivers have an additional safety check
+    * the block vvfat driver is updated to use PATH_MAX bytes
+      for the size of backing_file, for systems where PATH_MAX is < 1024
+      bytes.
+    * qemu-img uses PATH_MAX rather than 1024.  These instances were not
+      changed to be dynamically allocated, however, as the extra
+      temporary 3K in stack usage for qemu-img does not seem worrisome.
+
+Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
+Reviewed-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Jeff Cody <jcody@redhat.com>
+Signed-off-by: Kevin Wolf <kwolf@redhat.com>
+(cherry picked from commit 9a29e18f7dfd5a0e80d1c60fc856ebba18ddb738)
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+
+Conflicts:
+	include/block/block_int.h
+	qemu-img.c
+
+Signed-off-by: Jeff Cody <jcody@redhat.com>
+---
+ block/qapi.c              | 4 ++--
+ block/qcow.c              | 2 +-
+ block/qcow2.c             | 3 ++-
+ block/vvfat.c             | 4 ++--
+ include/block/block_int.h | 6 +++---
+ qemu-img.c                | 2 +-
+ 6 files changed, 11 insertions(+), 10 deletions(-)
+
+diff --git a/block/qapi.c b/block/qapi.c
+index 4a21fad..513661a 100644
+--- a/block/qapi.c
++++ b/block/qapi.c
+@@ -196,10 +196,10 @@ void bdrv_query_image_info(BlockDriverState *bs,
+ 
+     backing_filename = bs->backing_file;
+     if (backing_filename[0] != '\0') {
+-        char *backing_filename2 = g_malloc0(1024);
++        char *backing_filename2 = g_malloc0(PATH_MAX);
+         info->backing_filename = g_strdup(backing_filename);
+         info->has_backing_filename = true;
+-        bdrv_get_full_backing_filename(bs, backing_filename2, 1024);
++        bdrv_get_full_backing_filename(bs, backing_filename2, PATH_MAX);
+ 
+         if (strcmp(backing_filename, backing_filename2) != 0) {
+             info->full_backing_filename =
+diff --git a/block/qcow.c b/block/qcow.c
+index a874056..5437476 100644
+--- a/block/qcow.c
++++ b/block/qcow.c
+@@ -202,7 +202,7 @@ static int qcow_open(BlockDriverState *bs, QDict *options, int flags,
+     /* read the backing file name */
+     if (header.backing_file_offset != 0) {
+         len = header.backing_file_size;
+-        if (len > 1023) {
++        if (len > 1023 || len > sizeof(bs->backing_file)) {
+             error_setg(errp, "Backing file name too long");
+             ret = -EINVAL;
+             goto fail;
+diff --git a/block/qcow2.c b/block/qcow2.c
+index 1e3ab6b..bca67c6 100644
+--- a/block/qcow2.c
++++ b/block/qcow2.c
+@@ -732,7 +732,8 @@ static int qcow2_open(BlockDriverState *bs, QDict *options, int flags,
+     /* read the backing file name */
+     if (header.backing_file_offset != 0) {
+         len = header.backing_file_size;
+-        if (len > MIN(1023, s->cluster_size - header.backing_file_offset)) {
++        if (len > MIN(1023, s->cluster_size - header.backing_file_offset) ||
++            len > sizeof(bs->backing_file)) {
+             error_setg(errp, "Backing file name too long");
+             ret = -EINVAL;
+             goto fail;
+diff --git a/block/vvfat.c b/block/vvfat.c
+index 70176b1..385ab67 100644
+--- a/block/vvfat.c
++++ b/block/vvfat.c
+@@ -2918,8 +2918,8 @@ static int enable_write_target(BDRVVVFATState *s, Error **errp)
+ 
+     array_init(&(s->commits), sizeof(commit_t));
+ 
+-    s->qcow_filename = g_malloc(1024);
+-    ret = get_tmp_filename(s->qcow_filename, 1024);
++    s->qcow_filename = g_malloc(PATH_MAX);
++    ret = get_tmp_filename(s->qcow_filename, PATH_MAX);
+     if (ret < 0) {
+         error_setg_errno(errp, -ret, "can't create temporary file");
+         goto err;
+diff --git a/include/block/block_int.h b/include/block/block_int.h
+index 7b541a0..8a8e339 100644
+--- a/include/block/block_int.h
++++ b/include/block/block_int.h
+@@ -318,9 +318,9 @@ struct BlockDriverState {
+ 
+     AioContext *aio_context; /* event loop used for fd handlers, timers, etc */
+ 
+-    char filename[1024];
+-    char backing_file[1024]; /* if non zero, the image is a diff of
+-                                this file image */
++    char filename[PATH_MAX];
++    char backing_file[PATH_MAX]; /* if non zero, the image is a diff of
++                                    this file image */
+     char backing_format[16]; /* if non-zero and backing_file exists */
+ 
+     BlockDriverState *backing_hd;
+diff --git a/qemu-img.c b/qemu-img.c
+index 1856fc8..291b7b0 100644
+--- a/qemu-img.c
++++ b/qemu-img.c
+@@ -2425,7 +2425,7 @@ static int img_rebase(int argc, char **argv)
+         bs_old_backing = NULL;
+         bs_new_backing = NULL;
+     } else {
+-        char backing_name[1024];
++        char backing_name[PATH_MAX];
+ 
+         bs_old_backing = bdrv_new("old_backing", &error_abort);
+         bdrv_get_backing_filename(bs, backing_name, sizeof(backing_name));
+-- 
+1.8.3.1
+

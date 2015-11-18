@@ -1,0 +1,112 @@
+From 21de88452452d9f866b45b01fad19bf3ed88ca75 Mon Sep 17 00:00:00 2001
+From: Markus Armbruster <armbru@redhat.com>
+Date: Mon, 11 Aug 2014 07:54:40 +0200
+Subject: [PATCH 06/16] rhel: Fix missing pc-q35-rhel7.0.0 compatibility properties
+
+Message-id: <1407743689-13553-7-git-send-email-armbru@redhat.com>
+Patchwork-id: 60515
+O-Subject: [PATCH RHEV-7.1 qemu-kvm-rhev 06/15] rhel: Fix missing pc-q35-rhel7.0.0 compatibility properties
+Bugzilla: 1118665
+RH-Acked-by: Eduardo Habkost <ehabkost@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: Dr. David Alan Gilbert (git) <dgilbert@redhat.com>
+
+Commit 72bb13d created PC_RHEL7_0_COMPAT, but assigned it only to
+pc_machine_rhel700.compat_props.  Assign it to pc_q35_machine_rhel700,
+too.
+
+Signed-off-by: Markus Armbruster <armbru@redhat.com>
+---
+ hw/i386/pc_piix.c    | 17 -----------------
+ hw/i386/pc_q35.c     |  4 ++++
+ include/hw/i386/pc.h | 26 ++++++++++++++++++++++++++
+ 3 files changed, 30 insertions(+), 17 deletions(-)
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/i386/pc_piix.c    |   17 -----------------
+ hw/i386/pc_q35.c     |    4 ++++
+ include/hw/i386/pc.h |   26 ++++++++++++++++++++++++++
+ 3 files changed, 30 insertions(+), 17 deletions(-)
+
+diff --git a/hw/i386/pc_piix.c b/hw/i386/pc_piix.c
+index 40d13fe..37ed4ef 100644
+--- a/hw/i386/pc_piix.c
++++ b/hw/i386/pc_piix.c
+@@ -959,23 +959,6 @@ static void pc_compat_rhel700(MachineState *machine)
+     has_reserved_memory = false;
+ }
+ 
+-/*
+- * RHE[LV] This set of items are from include/hw/i386/pc.h where they
+- * are part of the PC_COMPAT_* defs. RHEL7 was QEMU 1.5.3 derived so pick up
+- * the diffs from 1.5 onwards MINUS the things that were already in RHEL7
+- * e.g. msos-desc
+- */
+-#define PC_RHEL7_0_COMPAT \
+-    {\
+-        .driver   = "PIIX4_PM",\
+-        .property = "acpi-pci-hotplug-with-bridge-support",\
+-        .value    = "off",\
+-    },{\
+-        .driver   = "e1000",\
+-        .property = "mitigation",\
+-        .value    = "off",\
+-    }
+-
+ static void pc_init_rhel700(MachineState *machine)
+ {
+     pc_compat_rhel700(machine);
+diff --git a/hw/i386/pc_q35.c b/hw/i386/pc_q35.c
+index eb015aa..abfaf60 100644
+--- a/hw/i386/pc_q35.c
++++ b/hw/i386/pc_q35.c
+@@ -479,6 +479,10 @@ static QEMUMachine pc_q35_machine_rhel700 = {
+     .desc = "RHEL-7.0.0 PC (Q35 + ICH9, 2009)",
+     .init = pc_q35_init_rhel700,
+     .default_machine_opts = "firmware=bios-256k.bin",
++    .compat_props = (GlobalProperty[]) {
++        PC_RHEL7_0_COMPAT,
++        { /* end of list */ }
++    },
+ };
+ 
+ static void rhel_pc_q35_machine_init(void)
+diff --git a/include/hw/i386/pc.h b/include/hw/i386/pc.h
+index de46485..40ef0ea 100644
+--- a/include/hw/i386/pc.h
++++ b/include/hw/i386/pc.h
+@@ -508,4 +508,30 @@ bool e820_get_entry(int, uint32_t, uint64_t *, uint64_t *);
+     .hot_add_cpu = pc_hot_add_cpu, \
+     .max_cpus = 160
+ 
++/*
++ * The PC_RHEL_*_COMPAT serve the same purpose for RHEL-7 machine
++ * types as the PC_COMPAT_* do for upstream types.
++ * PC_RHEL_7_*_COMPAT apply both to i440fx and q35 types.
++ * PC_RHEL6_*_COMPAT apply to i440fx types only, and therefore live
++ * in pc_piix.c.
++ */
++
++/*
++ * RHEL-7 is based on QEMU 1.5.3, so this needs the PC_COMPAT_*
++ * between our base and 1.5, less stuff backported to RHEL-7.0
++ * (usb-device.msos-desc), less stuff for devices we changed
++ * (qemu64-x86_64-cpu) or don't support (hpet, pci-serial-2x,
++ * pci-serial-4x) in 7.0.
++ */
++#define PC_RHEL7_0_COMPAT \
++        {\
++            .driver   = "PIIX4_PM",\
++            .property = "acpi-pci-hotplug-with-bridge-support",\
++            .value    = "off",\
++        },{\
++            .driver   = "e1000",\
++            .property = "mitigation",\
++            .value    = "off",\
++        }
++
+ #endif
+-- 
+1.7.1
+

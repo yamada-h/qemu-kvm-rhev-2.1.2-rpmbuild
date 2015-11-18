@@ -1,0 +1,160 @@
+From 18bf2f8be6bb12bd1860aa12be830903573a5a8c Mon Sep 17 00:00:00 2001
+From: John Snow <jsnow@redhat.com>
+Date: Fri, 14 Nov 2014 22:07:20 +0100
+Subject: [PATCH 32/48] ide: simplify start_transfer callbacks
+
+Message-id: <1416002855-4964-6-git-send-email-jsnow@redhat.com>
+Patchwork-id: 62400
+O-Subject: [RHEV-7.1 qemu-kvm-rhev PATCH v2 05/20] ide: simplify start_transfer callbacks
+Bugzilla: 1024599
+RH-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+RH-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+
+From: Paolo Bonzini <pbonzini@redhat.com>
+
+Drop the unused return value and make the callback optional.
+
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+(cherry picked from commit 446351236b6e9c53b25e30d107c6235347df1dde)
+Signed-off-by: John Snow <jsnow@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ hw/ide/ahci.c     |  4 +---
+ hw/ide/core.c     | 10 +++-------
+ hw/ide/internal.h |  3 +--
+ hw/ide/macio.c    |  6 ------
+ hw/ide/pci.c      |  6 ------
+ 5 files changed, 5 insertions(+), 24 deletions(-)
+
+diff --git a/hw/ide/ahci.c b/hw/ide/ahci.c
+index a38410e..9d621e1 100644
+--- a/hw/ide/ahci.c
++++ b/hw/ide/ahci.c
+@@ -991,7 +991,7 @@ out:
+ }
+ 
+ /* DMA dev <-> ram */
+-static int ahci_start_transfer(IDEDMA *dma)
++static void ahci_start_transfer(IDEDMA *dma)
+ {
+     AHCIDevice *ad = DO_UPCAST(AHCIDevice, dma, dma);
+     IDEState *s = &ad->port.ifs[0];
+@@ -1041,8 +1041,6 @@ out:
+         /* done with DMA */
+         ahci_trigger_irq(ad->hba, ad, PORT_IRQ_STAT_DSS);
+     }
+-
+-    return 0;
+ }
+ 
+ static void ahci_start_dma(IDEDMA *dma, IDEState *s,
+diff --git a/hw/ide/core.c b/hw/ide/core.c
+index 96f37dc..56e0a79 100644
+--- a/hw/ide/core.c
++++ b/hw/ide/core.c
+@@ -472,7 +472,9 @@ void ide_transfer_start(IDEState *s, uint8_t *buf, int size,
+     if (!(s->status & ERR_STAT)) {
+         s->status |= DRQ_STAT;
+     }
+-    s->bus->dma->ops->start_transfer(s->bus->dma);
++    if (s->bus->dma->ops->start_transfer) {
++        s->bus->dma->ops->start_transfer(s->bus->dma);
++    }
+ }
+ 
+ void ide_transfer_stop(IDEState *s)
+@@ -2275,11 +2277,6 @@ static void ide_nop_start(IDEDMA *dma, IDEState *s,
+ {
+ }
+ 
+-static int ide_nop(IDEDMA *dma)
+-{
+-    return 0;
+-}
+-
+ static int ide_nop_int(IDEDMA *dma, int x)
+ {
+     return 0;
+@@ -2291,7 +2288,6 @@ static void ide_nop_restart(void *opaque, int x, RunState y)
+ 
+ static const IDEDMAOps ide_dma_nop_ops = {
+     .start_dma      = ide_nop_start,
+-    .start_transfer = ide_nop,
+     .prepare_buf    = ide_nop_int,
+     .rw_buf         = ide_nop_int,
+     .set_unit       = ide_nop_int,
+diff --git a/hw/ide/internal.h b/hw/ide/internal.h
+index 940dd45..64fbf2f 100644
+--- a/hw/ide/internal.h
++++ b/hw/ide/internal.h
+@@ -321,7 +321,6 @@ typedef void EndTransferFunc(IDEState *);
+ 
+ typedef void DMAStartFunc(IDEDMA *, IDEState *, BlockDriverCompletionFunc *);
+ typedef void DMAVoidFunc(IDEDMA *);
+-typedef int DMAFunc(IDEDMA *);
+ typedef int DMAIntFunc(IDEDMA *, int);
+ typedef void DMARestartFunc(void *, int, RunState);
+ 
+@@ -428,7 +427,7 @@ struct IDEState {
+ 
+ struct IDEDMAOps {
+     DMAStartFunc *start_dma;
+-    DMAFunc *start_transfer;
++    DMAVoidFunc *start_transfer;
+     DMAIntFunc *prepare_buf;
+     DMAIntFunc *rw_buf;
+     DMAIntFunc *set_unit;
+diff --git a/hw/ide/macio.c b/hw/ide/macio.c
+index 0e26bac..b7cedb6 100644
+--- a/hw/ide/macio.c
++++ b/hw/ide/macio.c
+@@ -545,11 +545,6 @@ static void macio_ide_reset(DeviceState *dev)
+     ide_bus_reset(&d->bus);
+ }
+ 
+-static int ide_nop(IDEDMA *dma)
+-{
+-    return 0;
+-}
+-
+ static int ide_nop_int(IDEDMA *dma, int x)
+ {
+     return 0;
+@@ -571,7 +566,6 @@ static void ide_dbdma_start(IDEDMA *dma, IDEState *s,
+ 
+ static const IDEDMAOps dbdma_ops = {
+     .start_dma      = ide_dbdma_start,
+-    .start_transfer = ide_nop,
+     .prepare_buf    = ide_nop_int,
+     .rw_buf         = ide_nop_int,
+     .set_unit       = ide_nop_int,
+diff --git a/hw/ide/pci.c b/hw/ide/pci.c
+index 9dc3cc5..1ee8c0a 100644
+--- a/hw/ide/pci.c
++++ b/hw/ide/pci.c
+@@ -264,11 +264,6 @@ static void bmdma_reset(IDEDMA *dma)
+     bm->nsector = 0;
+ }
+ 
+-static int bmdma_start_transfer(IDEDMA *dma)
+-{
+-    return 0;
+-}
+-
+ static void bmdma_irq(void *opaque, int n, int level)
+ {
+     BMDMAState *bm = opaque;
+@@ -500,7 +495,6 @@ void pci_ide_create_devs(PCIDevice *dev, DriveInfo **hd_table)
+ 
+ static const struct IDEDMAOps bmdma_ops = {
+     .start_dma = bmdma_start_dma,
+-    .start_transfer = bmdma_start_transfer,
+     .prepare_buf = bmdma_prepare_buf,
+     .rw_buf = bmdma_rw_buf,
+     .set_unit = bmdma_set_unit,
+-- 
+1.8.3.1
+

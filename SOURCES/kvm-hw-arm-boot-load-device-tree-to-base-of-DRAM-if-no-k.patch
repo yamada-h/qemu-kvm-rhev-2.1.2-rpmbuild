@@ -1,0 +1,50 @@
+From 0e7c4515537f20f87d6ffdb9115f527618280eef Mon Sep 17 00:00:00 2001
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Date: Fri, 7 Nov 2014 12:59:09 -0500
+Subject: [PATCH 06/10] hw/arm/boot: load device tree to base of DRAM if no
+ -kernel option was passed
+
+Message-id: <1415383153-28089-7-git-send-email-wei@redhat.com>
+Patchwork-id: 62216
+O-Subject: [RHELSA qemu-kvm-rhev PATCH 06/10] hw/arm/boot: load device tree to
+        base of DRAM if no -kernel option was passed
+Bugzilla: 1160325
+RH-Acked-by: Andrew Jones <drjones@redhat.com>
+
+If we are running the 'virt' machine, we may have a device tree blob but no
+kernel to supply it to if no -kernel option was passed. In that case, copy it
+to the base of RAM where it can be picked up by a bootloader.
+
+Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Message-id: 1410453915-9344-4-git-send-email-ard.biesheuvel@linaro.org
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+
+Signed-off-by: Wei Huang <wei@redhat.com>
+---
+ hw/arm/boot.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/hw/arm/boot.c b/hw/arm/boot.c
+index f0e834b..41d1678 100644
+--- a/hw/arm/boot.c
++++ b/hw/arm/boot.c
+@@ -486,6 +486,16 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
+ 
+     /* Load the kernel.  */
+     if (!info->kernel_filename) {
++
++        if (have_dtb(info)) {
++            /* If we have a device tree blob, but no kernel to supply it to,
++             * copy it to the base of RAM for a bootloader to pick up.
++             */
++            if (load_dtb(info->loader_start, info, 0) < 0) {
++                exit(1);
++            }
++        }
++
+         /* If no kernel specified, do nothing; we will start from address 0
+          * (typically a boot ROM image) in the same way as hardware.
+          */
+-- 
+1.8.3.1
+
