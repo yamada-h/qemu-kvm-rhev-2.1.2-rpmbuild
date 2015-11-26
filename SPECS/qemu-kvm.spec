@@ -86,7 +86,7 @@ Obsoletes: %1 < %{obsoletes_version}                                      \
 Summary: QEMU is a FAST! processor emulator
 Name: %{pkgname}%{?pkgsuffix}
 Version: 2.1.2
-Release: 23%{?dist}_1.9.sheepdog
+Release: 23%{?dist}_1.11.sd
 # Epoch because we pushed a qemu-1.0 package. AIUI this can't ever be dropped
 Epoch: 10
 License: GPLv2+ and LGPLv2+ and BSD
@@ -1494,14 +1494,14 @@ cp %{SOURCE20} pc-bios
 %patch370 -p1
 %patch371 -p1
 %patch372 -p1
-%patch373 -p1
-%patch374 -p1
-%patch375 -p1
-%patch376 -p1
-%patch377 -p1
-%patch378 -p1
-%patch379 -p1
-%patch380 -p1
+#%patch373 -p1
+#%patch374 -p1
+#%patch375 -p1
+#%patch376 -p1
+#%patch377 -p1
+#%patch378 -p1
+#%patch379 -p1
+#%patch380 -p1
 %patch381 -p1
 
 %build
